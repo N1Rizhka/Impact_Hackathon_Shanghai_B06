@@ -12,9 +12,9 @@ const METHODS = [
   { id: 'flashcards', label: 'Flashcards', blurb: 'Free · spaced recall', premium: false },
   { id: 'errorHunt', label: 'Error hunt', blurb: 'Free · catch planted mistakes', premium: false },
   { id: 'quiz', label: 'Checkpoint quiz', blurb: 'Free · on the team timeline', premium: false },
-  { id: 'openQ', label: 'Open questions', blurb: 'Premium · AI reflection + feedback', premium: true },
-  { id: 'explain', label: 'Explain-back', blurb: 'Premium · corrected personal review', premium: true },
-  { id: 'aiChat', label: 'AI tutor chat', blurb: 'Premium · ask only about your materials', premium: true },
+  { id: 'aiChat', label: 'AI chat', blurb: 'Premium · ask only about your materials', premium: true },
+  { id: 'videoExplain', label: 'Video explanation', blurb: 'Premium · narrated scenes from your PDF', premium: true },
+  { id: 'photoSchemes', label: 'Photo schemes', blurb: 'Premium · diagram from your notes', premium: true },
 ];
 
 async function api(path, opts) {
@@ -434,6 +434,11 @@ export default function BrainAidApp({ initialInvite = '' }) {
       ],
       chatInput: '',
       chatBusy: false,
+      media: null,
+      mediaLoading: false,
+      mediaError: '',
+      videoIdx: 0,
+      videoPlaying: false,
     });
     setView('session');
   }
@@ -446,10 +451,6 @@ export default function BrainAidApp({ initialInvite = '' }) {
     }
     if (mode === 'quiz' && !(topic.quiz || []).length) {
       setError('This topic has no checkpoint quiz yet.');
-      return;
-    }
-    if (mode === 'openQ' && !(topic.openQuestions || []).length) {
-      setError('This topic has no open questions yet — regenerate with AI or pick another topic.');
       return;
     }
     if (isPremiumMethod(mode) && !premium) {
@@ -1056,15 +1057,15 @@ export default function BrainAidApp({ initialInvite = '' }) {
           <div className="modal-backdrop" role="dialog" aria-modal="true">
             <div className="modal-card">
               <p className="eyebrow">Premium</p>
-              <h2 style={{ marginTop: 0 }}>Personalized practice — ${PREMIUM_PRICE_USD}</h2>
+              <h2 style={{ marginTop: 0 }}>Premium practice — ${PREMIUM_PRICE_USD}</h2>
               <p>
-                Free keeps flashcards, error hunt, and checkpoint quizzes. Premium unlocks open
-                questions and corrected explain-back — AI-personalized evidence of learning.
+                Free keeps flashcards, error hunt, and checkpoint quizzes. Premium adds AI tools
+                grounded in your uploaded PDF/notes.
               </p>
               <ul className="premium-list">
-                <li>Open questions with keyword feedback</li>
-                <li>Explain-back with corrected review</li>
-                <li>AI tutor chat grounded only in your uploaded PDF/notes</li>
+                <li>AI chat about your materials</li>
+                <li>Video explanation scenes from your PDF</li>
+                <li>Photo schemes / diagrams from your notes</li>
               </ul>
               <div className="actions">
                 <button type="button" className="btn ghost" onClick={() => setPremiumModal(false)}>
@@ -1180,7 +1181,7 @@ function RoomView({
   ).replace(/\/$/, '');
   const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
-  const methodIds = [...new Set([...(room.methods || []), 'quiz', 'flashcards', 'errorHunt', 'openQ', 'explain', 'aiChat'])];
+  const methodIds = [...new Set([...(room.methods || []), 'quiz', 'flashcards', 'errorHunt', 'aiChat', 'videoExplain', 'photoSchemes'])];
   const freeMethods = methodIds.filter((id) => {
     const m = METHODS.find((x) => x.id === id);
     return m && !m.premium;
@@ -1357,14 +1358,14 @@ function SessionView({ session, setSession, onExit, onFinish }) {
         {mode === 'quiz' && (
           <QuizSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
-        {mode === 'openQ' && (
-          <OpenQuestionSession session={session} setSession={setSession} onFinish={onFinish} />
-        )}
         {mode === 'aiChat' && (
           <AiChatSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
-        {mode === 'explain' && (
-          <ExplainSession session={session} setSession={setSession} onFinish={onFinish} />
+        {mode === 'videoExplain' && (
+          <VideoExplainSession session={session} setSession={setSession} onFinish={onFinish} />
+        )}
+        {mode === 'photoSchemes' && (
+          <PhotoSchemesSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
       </div>
     </>
@@ -1557,6 +1558,186 @@ function QuizSession({ session, setSession, onFinish }) {
   );
 }
 
+
+
+function VideoExplainSession({ session, setSession, onFinish }) {
+  const { topic, media, mediaLoading, mediaError, videoIdx, videoPlaying } = session;
+
+  async function load() {
+    if (mediaLoading) return;
+    setSession({ ...session, mediaLoading: true, mediaError: '' });
+    try {
+      const data = await api('/api/topics/media', {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'videoExplain', topicId: topic.id, topic }),
+      });
+      setSession((prev) => ({
+        ...prev,
+        media: data,
+        mediaLoading: false,
+        videoIdx: 0,
+        videoPlaying: false,
+      }));
+    } catch (e) {
+      setSession((prev) => ({
+        ...prev,
+        mediaLoading: false,
+        mediaError: e.message || 'Could not build video',
+      }));
+    }
+  }
+
+  if (!media && !mediaLoading) {
+    return (
+      <>
+        <p className="eyebrow">Premium · Video explanation</p>
+        <h3>Narrated scenes from your materials</h3>
+        <p className="muted-line">Built only from this topic&apos;s PDF/notes — not the open web.</p>
+        {mediaError && <p className="toast bad">{mediaError}</p>}
+        <button type="button" className="btn primary" onClick={load}>
+          Generate video scenes
+        </button>
+      </>
+    );
+  }
+  if (mediaLoading) {
+    return (
+      <>
+        <p className="eyebrow">Premium · Video explanation</p>
+        <h3>Generating scenes…</h3>
+      </>
+    );
+  }
+
+  const scenes = media.scenes || [];
+  const scene = scenes[videoIdx] || scenes[0];
+  const last = videoIdx >= scenes.length - 1;
+
+  return (
+    <>
+      <p className="eyebrow">Premium · Video explanation</p>
+      <h3 style={{ marginTop: 0 }}>{media.title}</h3>
+      <div className="video-stage">
+        <div className="video-screen">
+          <span className="video-badge">
+            Scene {videoIdx + 1}/{scenes.length}
+          </span>
+          <strong>{scene.title}</strong>
+          <p className="video-onscreen">{scene.onScreen}</p>
+        </div>
+        <p className="video-narration">{scene.narration}</p>
+      </div>
+      <div className="actions" style={{ justifyContent: 'flex-start' }}>
+        <button
+          type="button"
+          className="btn sm"
+          disabled={videoIdx === 0}
+          onClick={() => setSession({ ...session, videoIdx: videoIdx - 1, videoPlaying: false })}
+        >
+          Prev
+        </button>
+        {!last ? (
+          <button
+            type="button"
+            className="btn primary sm"
+            onClick={() => setSession({ ...session, videoIdx: videoIdx + 1 })}
+          >
+            Next scene
+          </button>
+        ) : (
+          <button type="button" className="btn primary" onClick={onFinish}>
+            Finish
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+function PhotoSchemesSession({ session, setSession, onFinish }) {
+  const { topic, media, mediaLoading, mediaError } = session;
+
+  async function load() {
+    if (mediaLoading) return;
+    setSession({ ...session, mediaLoading: true, mediaError: '', media: null });
+    try {
+      const data = await api('/api/topics/media', {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'photoSchemes', topicId: topic.id, topic }),
+      });
+      setSession((prev) => ({ ...prev, media: data, mediaLoading: false }));
+    } catch (e) {
+      setSession((prev) => ({
+        ...prev,
+        mediaLoading: false,
+        mediaError: e.message || 'Could not build scheme',
+      }));
+    }
+  }
+
+  if (!media && !mediaLoading) {
+    return (
+      <>
+        <p className="eyebrow">Premium · Photo schemes</p>
+        <h3>Diagram from your notes</h3>
+        <p className="muted-line">A labeled scheme grounded only in your uploaded materials.</p>
+        {mediaError && <p className="toast bad">{mediaError}</p>}
+        <button type="button" className="btn primary" onClick={load}>
+          Generate scheme
+        </button>
+      </>
+    );
+  }
+  if (mediaLoading) {
+    return (
+      <>
+        <p className="eyebrow">Premium · Photo schemes</p>
+        <h3>Drawing scheme…</h3>
+      </>
+    );
+  }
+
+  const nodes = media.nodes || [];
+  const edges = media.edges || [];
+
+  return (
+    <>
+      <p className="eyebrow">Premium · Photo schemes</p>
+      <h3 style={{ marginTop: 0 }}>{media.title}</h3>
+      {media.caption && <p className="muted-line">{media.caption}</p>}
+      <div className="scheme-board">
+        {nodes.map((n, i) => (
+          <div key={n.id} className="scheme-node" style={{ '--i': i }}>
+            <strong>{n.label}</strong>
+            {n.detail ? <span>{n.detail}</span> : null}
+          </div>
+        ))}
+      </div>
+      {edges.length > 0 && (
+        <ul className="scheme-edges">
+          {edges.map((e, i) => {
+            const from = nodes.find((n) => n.id === e.from)?.label || e.from;
+            const to = nodes.find((n) => n.id === e.to)?.label || e.to;
+            return (
+              <li key={i}>
+                {from} → {to}
+                {e.label ? ` (${e.label})` : ''}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="actions">
+        <button type="button" className="btn sm" onClick={load}>
+          Regenerate
+        </button>
+        <button type="button" className="btn primary" onClick={onFinish}>
+          Finish
+        </button>
+      </div>
+    </>
+  );
+}
 
 function AiChatSession({ session, setSession, onFinish }) {
   const { topic, chatMessages, chatInput, chatBusy } = session;

@@ -478,6 +478,59 @@ a { color: inherit; }
   background: linear-gradient(135deg, #f3e8ff, #ffe8f1);
 }
 
+.video-stage { margin: 8px 0 12px; }
+.video-screen {
+  position: relative;
+  min-height: 160px;
+  padding: 18px 16px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: linear-gradient(160deg, #101828, #1d4ed8 55%, #0ea5e9);
+  color: #fff;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+.video-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(255,255,255,0.18);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.video-screen strong { display: block; font-size: 1.2rem; margin-bottom: 8px; }
+.video-onscreen { margin: 0; opacity: 0.92; }
+.video-narration {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: #fff8e8;
+  font-weight: 600;
+}
+.scheme-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.scheme-node {
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 4px 4px 0 var(--ink);
+  display: grid;
+  gap: 4px;
+}
+.scheme-node span { font-size: 0.82rem; opacity: 0.8; }
+.scheme-edges {
+  margin: 0 0 12px;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+
 .ai-chat {
   display: grid;
   gap: 8px;
