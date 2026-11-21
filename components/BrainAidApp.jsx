@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Logo from './Logo';
-import { QuizLeaderboard, SponsorPerks, TeamTimeline } from './RoomTeamPanels';
-import { getDeviceId, loadUser, saveUser } from '@/lib/device';
+import { SponsorStrip, TeamTimeline } from './RoomTeamPanels';
+import { getDeviceId, loadPremium, loadUser, savePremium, saveUser } from '@/lib/device';
 import { extractTextFromFiles } from '@/lib/extractMaterial';
+import { isPremiumMethod, PREMIUM_PRICE_USD } from '@/lib/premium';
 import { memberPoints } from '@/lib/scoring';
 
 const METHODS = [
-  { id: 'flashcards', label: 'Flashcards', blurb: 'Spaced recall practice', kind: 'practice' },
-  { id: 'errorHunt', label: 'Error hunt', blurb: 'Catch planted mistakes', kind: 'practice' },
-  { id: 'openQ', label: 'Open questions', blurb: 'AI-written reflection prompts', kind: 'practice' },
-  { id: 'explain', label: 'Explain-back', blurb: 'Teach it yourself', kind: 'practice' },
-  { id: 'quiz', label: 'Checkpoint quiz', blurb: 'Competitive team checkpoint', kind: 'checkpoint' },
+  { id: 'flashcards', label: 'Flashcards', blurb: 'Free · spaced recall', premium: false },
+  { id: 'errorHunt', label: 'Error hunt', blurb: 'Free · catch planted mistakes', premium: false },
+  { id: 'quiz', label: 'Checkpoint quiz', blurb: 'Free · on the team timeline', premium: false },
+  { id: 'openQ', label: 'Open questions', blurb: 'Premium · AI reflection + feedback', premium: true },
+  { id: 'explain', label: 'Explain-back', blurb: 'Premium · corrected personal review', premium: true },
 ];
 
 async function api(path, opts) {
@@ -71,7 +72,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
     teamName: '',
     topicId: 'photosynthesis',
     period: 14,
-    methods: ['flashcards', 'errorHunt', 'openQ', 'quiz'],
+    methods: ['flashcards', 'errorHunt', 'quiz'],
     quizEvery: 2,
   });
   const [topicForm, setTopicForm] = useState({ title: '', material: '' });
@@ -80,6 +81,9 @@ export default function BrainAidApp({ initialInvite = '' }) {
   const [notifications, setNotifications] = useState([]);
   const [toastNudge, setToastNudge] = useState(null);
   const seenNudgeIds = useMemo(() => new Set(), []);
+  const [premium, setPremium] = useState(false);
+  const [premiumModal, setPremiumModal] = useState(false);
+  const [pendingPremiumMethod, setPendingPremiumMethod] = useState(null);
 
   const refreshTopics = useCallback(async () => {
     const data = await api('/api/topics');
@@ -100,6 +104,10 @@ export default function BrainAidApp({ initialInvite = '' }) {
     const data = await api(`/api/rooms/${roomId}`);
     setRoomDetail(data);
     setActiveRoomId(roomId);
+  }, []);
+
+  useEffect(() => {
+    setPremium(loadPremium());
   }, []);
 
   useEffect(() => {
@@ -400,20 +408,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
     return topics.find((t) => t.id === id) || (roomDetail?.topic?.id === id ? roomDetail.topic : null);
   }
 
-  function startSession(mode) {
-    const topic = topicById(roomDetail.room.topicId) || roomDetail?.topic;
-    if (!topic) {
-      setError('Topic pack missing — recreate the room or pick a built-in topic.');
-      return;
-    }
-    if (mode === 'quiz' && !(topic.quiz || []).length) {
-      setError('This topic has no checkpoint quiz yet.');
-      return;
-    }
-    if (mode === 'openQ' && !(topic.openQuestions || []).length) {
-      setError('This topic has no open questions yet — regenerate with AI or pick another topic.');
-      return;
-    }
+  function beginSession(mode, topic) {
     setSession({
       mode,
       topic,
@@ -431,6 +426,40 @@ export default function BrainAidApp({ initialInvite = '' }) {
       openAnswers: [],
     });
     setView('session');
+  }
+
+  function startSession(mode) {
+    const topic = topicById(roomDetail.room.topicId) || roomDetail?.topic;
+    if (!topic) {
+      setError('Topic pack missing — recreate the room or pick a built-in topic.');
+      return;
+    }
+    if (mode === 'quiz' && !(topic.quiz || []).length) {
+      setError('This topic has no checkpoint quiz yet.');
+      return;
+    }
+    if (mode === 'openQ' && !(topic.openQuestions || []).length) {
+      setError('This topic has no open questions yet — regenerate with AI or pick another topic.');
+      return;
+    }
+    if (isPremiumMethod(mode) && !premium) {
+      setPendingPremiumMethod(mode);
+      setPremiumModal(true);
+      return;
+    }
+    beginSession(mode, topic);
+  }
+
+  function unlockPremium() {
+    savePremium(true);
+    setPremium(true);
+    setPremiumModal(false);
+    const mode = pendingPremiumMethod;
+    setPendingPremiumMethod(null);
+    if (mode && roomDetail) {
+      const topic = topicById(roomDetail.room.topicId) || roomDetail?.topic;
+      if (topic) beginSession(mode, topic);
+    }
   }
 
   async function finishSession() {
@@ -763,6 +792,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                       }}
                     >
                       {m.label}
+                      {m.premium ? ' · $5' : ''}
                     </button>
                   ))}
                 </div>
@@ -999,7 +1029,40 @@ export default function BrainAidApp({ initialInvite = '' }) {
             onStart={startSession}
             onOpenChat={() => setView('chat')}
             onClearNudges={() => dismissNotifications({ roomId: roomDetail.room.id })}
+            premium={premium}
+            onUnlockPremium={() => {
+              setPendingPremiumMethod(null);
+              setPremiumModal(true);
+            }}
           />
+        )}
+
+        {premiumModal && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div className="modal-card">
+              <p className="eyebrow">Premium</p>
+              <h2 style={{ marginTop: 0 }}>Personalized practice — ${PREMIUM_PRICE_USD}</h2>
+              <p>
+                Free keeps flashcards, error hunt, and checkpoint quizzes. Premium unlocks open
+                questions and corrected explain-back — AI-personalized evidence of learning.
+              </p>
+              <ul className="premium-list">
+                <li>Open questions with keyword feedback</li>
+                <li>Explain-back with corrected review</li>
+              </ul>
+              <div className="actions">
+                <button type="button" className="btn ghost" onClick={() => setPremiumModal(false)}>
+                  Stay on free
+                </button>
+                <button type="button" className="btn primary" onClick={unlockPremium}>
+                  Unlock for ${PREMIUM_PRICE_USD}
+                </button>
+              </div>
+              <p className="muted-line" style={{ marginTop: 10 }}>
+                Demo checkout — no real payment in this hackathon build.
+              </p>
+            </div>
+          </div>
         )}
 
         {view === 'chat' && roomDetail && (
@@ -1091,40 +1154,22 @@ function RoomView({
   onStart,
   onOpenChat,
   onClearNudges,
+  premium,
+  onUnlockPremium,
 }) {
   const { room, members } = detail;
-  // NEXT_PUBLIC_APP_URL should be your public production host (not an SSO-locked preview).
   const publicOrigin = (
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== 'undefined' ? window.location.origin : '')
   ).replace(/\/$/, '');
   const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
-  const practiceMethods = (room.methods || []).filter((id) => {
+  const methodIds = [...new Set([...(room.methods || []), 'quiz', 'flashcards', 'errorHunt', 'openQ', 'explain'])];
+  const freeMethods = methodIds.filter((id) => {
     const m = METHODS.find((x) => x.id === id);
-    return m && m.kind !== 'checkpoint';
+    return m && !m.premium;
   });
-  const checkpointMethods = (room.methods || []).filter((id) => {
-    const m = METHODS.find((x) => x.id === id);
-    return m?.kind === 'checkpoint';
-  });
-  // Always surface checkpoint quiz even if older rooms omitted it
-  if (!checkpointMethods.includes('quiz')) checkpointMethods.push('quiz');
-  if (!practiceMethods.includes('openQ') && (topic?.openQuestions || []).length) {
-    practiceMethods.push('openQ');
-  }
-
-  const rankings = members
-    .map((m) => {
-      const sessions = room.sessionsByUser?.[m.id] || [];
-      return {
-        ...m,
-        score: memberPoints(sessions),
-        sessions: sessions.length,
-        isYou: m.id === user.id,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
+  const premiumMethods = methodIds.filter((id) => METHODS.find((x) => x.id === id)?.premium);
 
   return (
     <>
@@ -1134,10 +1179,11 @@ function RoomView({
           <h1>{topic?.title || 'Room'}</h1>
           <p>
             {room.period} days · {members.length} people
+            {premium ? ' · Premium' : ' · Free'}
           </p>
         </div>
         <button type="button" className="btn blue" onClick={onOpenChat}>
-          Open chat
+          Chat
         </button>
       </div>
 
@@ -1151,9 +1197,6 @@ function RoomView({
         >
           Copy link
         </button>
-        <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.85 }}>
-          Friends open the link and pick a Brain Aid name — no other account needed.
-        </p>
       </div>
 
       {myNudges.length > 0 && (
@@ -1170,57 +1213,55 @@ function RoomView({
         </div>
       )}
 
-      <TeamTimeline room={room} members={members} />
+      <TeamTimeline room={room} members={members} onStartQuiz={() => onStart('quiz')} />
+      <SponsorStrip room={room} members={members} />
 
-      <div className="split">
+      <div className="split room-simple">
         <div>
           <div className="card" style={{ marginBottom: 12 }}>
             <p className="eyebrow">Practice</p>
             <div className="mode-grid">
-              {practiceMethods.map((id) => {
+              {freeMethods.map((id) => {
                 const m = METHODS.find((x) => x.id === id);
                 if (!m) return null;
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    className="mode-btn"
-                    onClick={() => onStart(id)}
-                  >
+                  <button key={id} type="button" className="mode-btn" onClick={() => onStart(id)}>
                     <strong>{m.label}</strong>
                     <span>{m.blurb}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
-          <div className="card" style={{ marginBottom: 12 }}>
-            <p className="eyebrow">Checkpoints</p>
-            <p className="muted-line" style={{ marginBottom: 10 }}>
-              Timed team challenge — scores are ranked for everyone in the room.
-            </p>
+            <div className="premium-row">
+              <p className="eyebrow">Premium · ${PREMIUM_PRICE_USD}</p>
+              {!premium && (
+                <button type="button" className="btn sm" onClick={onUnlockPremium}>
+                  Unlock
+                </button>
+              )}
+            </div>
             <div className="mode-grid">
-              {checkpointMethods.map((id) => {
+              {premiumMethods.map((id) => {
                 const m = METHODS.find((x) => x.id === id);
                 if (!m) return null;
                 return (
                   <button
                     key={id}
                     type="button"
-                    className="mode-btn checkpoint"
+                    className={`mode-btn premium ${premium ? '' : 'locked'}`}
                     onClick={() => onStart(id)}
                   >
                     <strong>{m.label}</strong>
-                    <span>{m.blurb}</span>
+                    <span>{premium ? m.blurb : `Locked · $${PREMIUM_PRICE_USD}`}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-          <QuizLeaderboard room={room} members={members} userId={user.id} />
+
           <div className="card">
-            <p className="eyebrow">Quick room chat</p>
-            <div className="chat" style={{ maxHeight: 180 }}>
+            <p className="eyebrow">Room chat</p>
+            <div className="chat" style={{ maxHeight: 160 }}>
               {(detail.chat || []).slice(-8).map((m) => (
                 <div key={m.id} className={`bubble ${m.userId === user.id ? 'me' : ''}`}>
                   <strong>{m.name}</strong>
@@ -1242,13 +1283,13 @@ function RoomView({
             </div>
           </div>
         </div>
+
         <div>
-          <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card">
             <p className="eyebrow">Team</p>
             {members.map((m) => {
               const sessions = room.sessionsByUser?.[m.id] || [];
               const pts = memberPoints(sessions);
-              const idle = sessions.length === 0;
               return (
                 <div key={m.id} className="member-row">
                   {avatar(m.name, m.color, 34)}
@@ -1258,17 +1299,11 @@ function RoomView({
                       {m.id === user.id ? ' (you)' : ''}
                     </strong>
                     <span>
-                      {pts} pts · {sessions.length} session{sessions.length === 1 ? '' : 's'}
-                      {idle ? " · hasn't started" : ''}
+                      {pts} pts · {sessions.length} sessions
                     </span>
                   </div>
                   {m.id !== user.id && (
-                    <button
-                      type="button"
-                      className="btn sm pink"
-                      onClick={() => onNudge(m.id)}
-                      title="Nudge them to study"
-                    >
+                    <button type="button" className="btn sm pink" onClick={() => onNudge(m.id)}>
                       Nudge
                     </button>
                   )}
@@ -1276,22 +1311,6 @@ function RoomView({
               );
             })}
           </div>
-          <div className="card" style={{ marginBottom: 12 }}>
-            <p className="eyebrow">Points board</p>
-            <ol className="rank">
-              {rankings.map((m, i) => (
-                <li key={m.id} className={m.isYou ? 'you' : ''}>
-                  <span>#{i + 1}</span>
-                  {avatar(m.name, m.color, 32)}
-                  <div>
-                    <strong>{m.name}</strong>
-                  </div>
-                  <strong>{m.score}</strong>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <SponsorPerks room={room} members={members} />
         </div>
       </div>
     </>
