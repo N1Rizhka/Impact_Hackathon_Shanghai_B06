@@ -745,11 +745,11 @@ a { color: inherit; }
   border: 1px solid var(--ink);
 }
 
-/* Source-paragraph “P” cites */
+/* Soft source-paragraph “P” cites — hover reveals paragraph */
 .question-with-cite {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   margin: 0 0 14px;
 }
 .question-with-cite-text { flex: 1; min-width: 0; }
@@ -757,7 +757,7 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   margin: 0 0 10px;
 }
 
@@ -766,61 +766,70 @@ a { color: inherit; }
   display: inline-flex;
   flex-shrink: 0;
   z-index: 2;
+  vertical-align: middle;
 }
 .passage-p {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.85rem;
+  border: 1px solid rgba(7, 7, 7, 0.22);
+  background: rgba(7, 7, 7, 0.04);
+  color: rgba(7, 7, 7, 0.55);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.72rem;
   line-height: 1;
+  letter-spacing: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 2px 2px 0 var(--ink);
-  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: none;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 .passage-p:hover,
 .passage-cite.open .passage-p,
 .passage-p.demo {
-  background: var(--yellow);
-  transform: translateY(-1px);
+  background: rgba(45, 108, 255, 0.1);
+  border-color: rgba(45, 108, 255, 0.35);
+  color: var(--blue);
+  transform: none;
 }
 .passage-tip {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   right: 0;
-  width: min(320px, 78vw);
-  padding: 12px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  background: #fffef8;
-  box-shadow: 4px 4px 0 var(--ink);
+  width: min(300px, 76vw);
+  padding: 10px 12px;
+  border: 1px solid rgba(7, 7, 7, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 28px rgba(7, 7, 7, 0.1);
   z-index: 20;
-  animation: passage-pop 0.18s ease-out;
+  animation: passage-fade 0.16s ease-out;
+  pointer-events: none;
 }
 .passage-tip strong {
   display: block;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
+  font-weight: 600;
+  color: rgba(7, 7, 7, 0.45);
+  margin-bottom: 5px;
 }
 .passage-tip em {
   display: block;
   font-style: normal;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
   line-height: 1.45;
+  color: var(--ink);
+  font-weight: 400;
 }
-@keyframes passage-pop {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes passage-fade {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .passage-tutorial {
@@ -830,43 +839,35 @@ a { color: inherit; }
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(7, 7, 7, 0.45);
-  animation: passage-pop 0.2s ease-out;
+  background: rgba(7, 7, 7, 0.28);
+  animation: passage-fade 0.18s ease-out;
 }
 .passage-tutorial-card {
-  width: min(440px, 100%);
+  width: min(400px, 100%);
   background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 18px;
-  padding: 22px 22px 18px;
-  box-shadow: 8px 8px 0 var(--ink);
+  border: 1px solid rgba(7, 7, 7, 0.12);
+  border-radius: 16px;
+  padding: 20px 20px 16px;
+  box-shadow: 0 18px 40px rgba(7, 7, 7, 0.12);
 }
 .passage-tutorial-card p { margin: 0 0 12px; }
 .passage-tutorial-demo {
-  margin: 14px 0 18px;
-  padding: 12px;
-  border: 2px dashed var(--ink);
-  border-radius: 14px;
-  background: #f7fbff;
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 1px solid rgba(7, 7, 7, 0.08);
+  border-radius: 12px;
+  background: rgba(45, 108, 255, 0.04);
 }
 .passage-tutorial-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 8px;
 }
 .passage-tutorial-row strong {
   flex: 1;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-}
-.passage-tip.static {
-  position: relative;
-  top: auto;
-  right: auto;
-  width: auto;
-  margin-top: 10px;
-  display: block;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 @media (max-width: 920px) {

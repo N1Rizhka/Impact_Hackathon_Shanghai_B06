@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 /**
- * Round “P” control — hover/focus/tap reveals the source paragraph from notes.
+ * Soft round “P” — hover / focus / tap reveals the source paragraph.
  */
 export default function PassageCite({ passage, label = 'From your notes', forceOpen = false, onOpened }) {
   const [open, setOpen] = useState(false);
@@ -29,7 +29,7 @@ export default function PassageCite({ passage, label = 'From your notes', forceO
 
   return (
     <span
-      className={`passage-cite ${shown ? 'open' : ''} ${forceOpen ? 'tutorial' : ''}`}
+      className={`passage-cite ${shown ? 'open' : ''}`}
       ref={wrapRef}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => !forceOpen && setOpen(false)}
@@ -65,29 +65,25 @@ export function PassageTutorial({ onDismiss }) {
     <div className="passage-tutorial" role="dialog" aria-modal="true">
       <div className="passage-tutorial-card">
         <p className="eyebrow">Quick tip</p>
-        <h2 style={{ marginTop: 0 }}>Find the paragraph behind each question</h2>
+        <h2 style={{ marginTop: 0 }}>Hover the soft P for the source paragraph</h2>
         <p>
-          Look for the round <span className="passage-p demo">P</span> next to a question. Hover or tap
-          it to see the matching slide / paragraph from your uploaded notes.
+          Next to each question you&apos;ll see a quiet <span className="passage-p demo">P</span>.
+          Hover it — the matching note paragraph appears.
         </p>
         <div className="passage-tutorial-demo">
-          <span className="muted-line">Example</span>
           <div className="passage-tutorial-row">
             <strong>What captures sunlight in leaves?</strong>
-            <span className="passage-p demo" aria-hidden="true">
-              P
-            </span>
+            <PassageCite
+              passage="Chlorophyll in leaves captures sunlight. Water and carbon dioxide become glucose and oxygen."
+              label="From your notes"
+            />
           </div>
-          <div className="passage-tip static" role="tooltip">
-            <strong>From your notes</strong>
-            <em>
-              Chlorophyll in leaves captures sunlight. Water and carbon dioxide become glucose and
-              oxygen.
-            </em>
-          </div>
+          <p className="muted-line" style={{ margin: '10px 0 0' }}>
+            Try hovering the P above.
+          </p>
         </div>
         <button type="button" className="btn primary" onClick={onDismiss}>
-          Got it — start practicing
+          Got it
         </button>
       </div>
     </div>
