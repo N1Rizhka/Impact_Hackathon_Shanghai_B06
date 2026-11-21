@@ -1,20 +1,34 @@
-# Brain Aid — concept app draft
+# Brain Aid
 
-Open **`index.html`** in a browser (no build step).
+Lifelong learning rooms with friends — custom topics, nudges, chat, pair streaks.
+
+## Local
 
 ```bash
-open index.html
-# or: npx --yes serve .
+npm install
+npm run dev
 ```
 
-## What’s in this draft
+Open http://localhost:3000
 
-- **Welcome** — set your name  
-- **Home / Rooms / Topics** — multi-screen navigation  
-- **Create room** — team name, add teammates, invite friends, pick topic + plan  
-- **Friends** — save people and reuse them in rooms  
-- **Room dashboard** — choose learning mode or auto-pick by confidence  
-- **Sessions** — flashcards, fair error hunt (no pre-highlights), quiz, explain-back  
-- **Commitment board** — rankings per room  
+## Deploy on Vercel
 
-Data persists in `localStorage` in this browser only.
+1. Import this project in Vercel (root directory: `brain-aid-demo` if monorepo).
+2. **Add Upstash Redis** (Storage → Upstash) so invites/chat sync across computers.
+3. Redeploy.
+
+Without Redis, the app still runs with a local file/memory store (fine on one machine; unreliable across Vercel serverless instances).
+
+## One user per computer
+
+The first profile on a browser is locked to that device ID in `localStorage`.
+
+## Invite flow
+
+1. Create a room → copy invite code or `/join/CODE`
+2. Friend opens the link → claims their device profile → joins
+3. Learn, chat, nudge, build pair streaks by completing sessions the same day
+
+## Custom topics
+
+Topics → paste or upload study material → generates flashcards, error hunt, quiz, explain-back.
