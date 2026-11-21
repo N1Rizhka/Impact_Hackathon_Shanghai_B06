@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { multiplayerReady } from '@/lib/store';
 
 export async function GET() {

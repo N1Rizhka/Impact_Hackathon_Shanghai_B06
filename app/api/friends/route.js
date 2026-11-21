@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getDb, updateDb } from '@/lib/store';
 
 function pairKey(a, b) {

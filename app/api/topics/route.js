@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { BUILTIN_TOPICS } from '@/lib/builtinTopics';
 import { getDb, updateDb } from '@/lib/store';
 import { generateTopicFromMaterial } from '@/lib/generateTopic';

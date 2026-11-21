@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { updateDb } from '@/lib/store';
 
 export async function POST(req) {

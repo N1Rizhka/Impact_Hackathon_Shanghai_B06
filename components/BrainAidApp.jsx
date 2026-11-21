@@ -17,7 +17,9 @@ async function api(path, opts) {
     ...opts,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    throw new Error(data.error || data.message || `Request failed (${res.status})`);
+  }
   return data;
 }
 
@@ -40,7 +42,6 @@ function avatar(name, color, size = 36) {
 
 export default function BrainAidApp({ initialInvite = '' }) {
   const [boot, setBoot] = useState(true);
-  const [status, setStatus] = useState({ multiplayerReady: false });
   const [user, setUser] = useState(null);
   const [nameDraft, setNameDraft] = useState('');
   const [view, setView] = useState('home');
@@ -90,8 +91,6 @@ export default function BrainAidApp({ initialInvite = '' }) {
   useEffect(() => {
     (async () => {
       try {
-        const st = await api('/api/status');
-        setStatus(st);
         const existing = loadUser();
         if (existing?.id) {
           setUser(existing);
@@ -132,12 +131,14 @@ export default function BrainAidApp({ initialInvite = '' }) {
 
   async function register() {
     setError('');
+    const name = nameDraft.trim();
+    if (!name) return;
     setBusy(true);
     try {
       const deviceId = getDeviceId();
       const { user: u } = await api('/api/users', {
         method: 'POST',
-        body: JSON.stringify({ name: nameDraft.trim(), deviceId }),
+        body: JSON.stringify({ name, deviceId }),
       });
       saveUser(u);
       setUser(u);
@@ -330,12 +331,8 @@ export default function BrainAidApp({ initialInvite = '' }) {
       <div className="welcome">
         <div className="welcome-card">
           <Logo size={48} />
-          <p className="eyebrow">One learner per computer</p>
           <h1>Brain Aid</h1>
-          <p className="lede">
-            Create your profile on this device. Invite friends with a room code after you deploy to
-            Vercel — each browser stays locked to one user.
-          </p>
+          <p className="lede">Learn together. Create a room, invite friends, and keep each other going.</p>
           <div className="field">
             <label>Your name</label>
             <input
@@ -347,7 +344,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
           </div>
           {error && <p className="toast bad">{error}</p>}
           <button type="button" className="btn primary" disabled={busy} onClick={register}>
-            Claim this device
+            Get started
           </button>
         </div>
       </div>
@@ -386,11 +383,6 @@ export default function BrainAidApp({ initialInvite = '' }) {
             </button>
           ))}
         </nav>
-        <div className={`side-note ${status.multiplayerReady ? 'ok' : ''}`}>
-          {status.multiplayerReady
-            ? 'Multiplayer storage connected (Redis). Invites work across devices.'
-            : 'Local storage mode. Add Upstash Redis on Vercel so invites sync across computers.'}
-        </div>
       </aside>
 
       <main className="main">
@@ -463,9 +455,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 </div>
                 <div className="card">
                   <h3>Build a topic</h3>
-                  <p style={{ marginBottom: 10 }}>
-                    Upload notes — AI builds flashcards, error hunt, quiz, explain-back.
-                  </p>
+                  <p style={{ marginBottom: 10 }}>Upload notes and turn them into practice.</p>
                   <button type="button" className="btn pink sm" onClick={() => setView('topics')}>
                     Create topic
                   </button>
@@ -506,7 +496,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <div className="topbar">
               <div>
                 <h1>Join with invite</h1>
-                <p>Enter a room code from a friend&apos;s Brain Aid link.</p>
+                <p>Enter a room code from a friend.</p>
               </div>
             </div>
             <div className="card" style={{ maxWidth: 480 }}>
@@ -530,7 +520,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <div className="topbar">
               <div>
                 <h1>Create room</h1>
-                <p>Name the crew, pick a topic, share the invite code.</p>
+                <p>Name the crew, pick a topic, share the invite.</p>
               </div>
             </div>
             <div className="card" style={{ maxWidth: 560 }}>
@@ -605,16 +595,13 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <div className="topbar">
               <div>
                 <h1>Topics</h1>
-                <p>Use a built-in pack or generate tasks from your own materials.</p>
+                <p>Built-in packs or your own materials.</p>
               </div>
             </div>
             <div className="split">
               <div className="card">
                 <h3>Create from study materials</h3>
-                <p style={{ marginBottom: 12 }}>
-                  Paste notes or upload a text file. We generate flashcards, error hunt, quiz, and
-                  explain-back in the same format.
-                </p>
+                <p style={{ marginBottom: 12 }}>Paste notes or upload a text file.</p>
                 <div className="field">
                   <label>Topic title</label>
                   <input
@@ -684,7 +671,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <div className="topbar">
               <div>
                 <h1>Friends</h1>
-                <p>Chat, see pair streaks, and add people by name or user ID.</p>
+                <p>Chat and keep streaks together.</p>
               </div>
             </div>
             <div className="split">
@@ -719,8 +706,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 )}
               </div>
               <div className="card">
-                <h3>Your share ID</h3>
-                <p style={{ marginBottom: 8 }}>Friends can add you with this ID or your name:</p>
+                <h3>Your ID</h3>
                 <div className="invite-box">
                   <code>{user.id}</code>
                   <button
@@ -787,7 +773,6 @@ export default function BrainAidApp({ initialInvite = '' }) {
             onNudge={sendNudge}
             onStart={startSession}
             onOpenChat={() => setView('chat')}
-            status={status}
           />
         )}
 
@@ -879,7 +864,6 @@ function RoomView({
   onNudge,
   onStart,
   onOpenChat,
-  status,
 }) {
   const { room, members } = detail;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -913,7 +897,7 @@ function RoomView({
       </div>
 
       <div className="invite-box" style={{ marginBottom: 14 }}>
-        <span>Invite friends:</span>
+        <span>Invite:</span>
         <code>{room.inviteCode}</code>
         <button
           type="button"
@@ -922,9 +906,6 @@ function RoomView({
         >
           Copy link
         </button>
-        {!status.multiplayerReady && (
-          <span style={{ fontSize: 12 }}>Add Redis on Vercel for cross-device sync</span>
-        )}
       </div>
 
       {myNudges.length > 0 && (
