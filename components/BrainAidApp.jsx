@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Logo from './Logo';
+import AuthScreen from './AuthScreen';
 import { SponsorStrip, TeamTimeline } from './RoomTeamPanels';
 import { getDeviceId, loadPremium, loadUser, savePremium, saveUser } from '@/lib/device';
 import { extractTextFromFiles } from '@/lib/extractMaterial';
@@ -75,7 +76,19 @@ export default function BrainAidApp({ initialInvite = '' }) {
     period: 14,
     methods: ['flashcards', 'errorHunt', 'quiz'],
     quizEvery: 2,
+    visibility: 'private',
   });
+  const [authMode, setAuthMode] = useState('register');
+  const [registerForm, setRegisterForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    country: '',
+    age: '',
+    sex: '',
+  });
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [publicRooms, setPublicRooms] = useState([]);
   const [topicForm, setTopicForm] = useState({ title: '', material: '' });
   const [busy, setBusy] = useState(false);
   const [extractStatus, setExtractStatus] = useState('');
@@ -116,24 +129,26 @@ export default function BrainAidApp({ initialInvite = '' }) {
       try {
         const existing = loadUser();
         if (existing?.id) {
-          // Re-hydrate server memory (Vercel serverless has no durable store without Redis).
-          const deviceId = existing.deviceId || getDeviceId();
           let u = existing;
           try {
-            const synced = await api('/api/users', {
-              method: 'POST',
-              body: JSON.stringify({ name: existing.name, deviceId }),
-            });
-            u = synced.user || existing;
-            saveUser(u);
+            const synced = await api(`/api/users?id=${encodeURIComponent(existing.id)}`);
+            if (synced.user) {
+              u = { ...existing, ...synced.user };
+              saveUser(u);
+            }
           } catch {
-            // Keep local profile; create/join will upsert the host.
+            // Keep local profile if server is cold.
           }
           setUser(u);
           setNameDraft(u.name);
           await refreshTopics();
           await refreshRooms(u.id);
           await refreshFriends(u.id);
+          try {
+            await refreshPublicRooms();
+          } catch {
+            /* ignore */
+          }
           if (initialInvite) {
             setView('join');
             setInviteInput(initialInvite);
@@ -207,23 +222,74 @@ export default function BrainAidApp({ initialInvite = '' }) {
     return () => clearInterval(t);
   }, [dmFriend, user]);
 
+  async function refreshPublicRooms() {
+    const data = await api('/api/rooms?scope=public');
+    setPublicRooms(data.rooms || []);
+  }
+
+  async function afterAuth(u) {
+    saveUser(u);
+    setUser(u);
+    setNameDraft(u.name || '');
+    await refreshTopics();
+    await refreshRooms(u.id);
+    await refreshFriends(u.id);
+    await refreshPublicRooms();
+    setView(initialInvite ? 'join' : 'home');
+  }
+
   async function register() {
     setError('');
-    const name = nameDraft.trim();
-    if (!name) return;
     setBusy(true);
     try {
       const deviceId = getDeviceId();
       const { user: u } = await api('/api/users', {
         method: 'POST',
-        body: JSON.stringify({ name, deviceId }),
+        body: JSON.stringify({ ...registerForm, age: Number(registerForm.age), deviceId }),
       });
-      saveUser(u);
-      setUser(u);
-      await refreshTopics();
-      await refreshRooms(u.id);
-      await refreshFriends(u.id);
-      setView(initialInvite ? 'join' : 'home');
+      await afterAuth(u);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function login() {
+    setError('');
+    setBusy(true);
+    try {
+      const deviceId = getDeviceId();
+      const { user: u } = await api('/api/users/login', {
+        method: 'POST',
+        body: JSON.stringify({ ...loginForm, deviceId }),
+      });
+      await afterAuth(u);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function joinPublicRoom(roomId) {
+    setBusy(true);
+    setError('');
+    try {
+      const { room } = await api('/api/rooms/join', {
+        method: 'POST',
+        body: JSON.stringify({
+          roomId,
+          userId: user.id,
+          userName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          userColor: user.color,
+        }),
+      });
+      await refreshRooms(user.id);
+      await refreshPublicRooms();
+      await loadRoom(room.id);
+      setView('room');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -523,26 +589,18 @@ export default function BrainAidApp({ initialInvite = '' }) {
 
   if (!user) {
     return (
-      <div className="welcome">
-        <div className="welcome-card">
-          <Logo size={48} />
-          <h1>Brain Aid</h1>
-          <p className="lede">Learn together. Create a room, invite friends, and keep each other going.</p>
-          <div className="field">
-            <label>Your name</label>
-            <input
-              value={nameDraft}
-              maxLength={32}
-              onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="e.g. Alex"
-            />
-          </div>
-          {error && <p className="toast bad">{error}</p>}
-          <button type="button" className="btn primary" disabled={busy} onClick={register}>
-            Get started
-          </button>
-        </div>
-      </div>
+      <AuthScreen
+        mode={authMode}
+        setMode={setAuthMode}
+        registerForm={registerForm}
+        setRegisterForm={setRegisterForm}
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
+        busy={busy}
+        error={error}
+        onRegister={register}
+        onLogin={login}
+      />
     );
   }
 
@@ -556,7 +614,10 @@ export default function BrainAidApp({ initialInvite = '' }) {
           {avatar(user.name, user.color, 34)}
           <div>
             <strong>{user.name}</strong>
-            <span>ID · {user.id.slice(0, 10)}</span>
+            <span>
+              @{user.username || user.id.slice(0, 10)}
+              {user.country ? ` · ${user.country}` : ''}
+            </span>
           </div>
         </div>
         <nav className="nav">
@@ -740,7 +801,9 @@ export default function BrainAidApp({ initialInvite = '' }) {
                     <h3>{r.teamName}</h3>
                     <p>
                       {topicById(r.topicId)?.title} · {r.memberIds.length} members
+                      {r.visibility === 'public' ? ' · public' : ' · private'}
                     </p>
+                    {r.audience?.blurb ? <p className="muted-line">{r.audience.blurb}</p> : null}
                   </div>
                 ))}
               </div>
@@ -749,6 +812,41 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 No rooms yet.
               </div>
             )}
+
+            <div style={{ margin: '22px 0 12px' }}>
+              <p className="eyebrow">Discover</p>
+              <h3 style={{ margin: '0 0 10px' }}>Public rooms</h3>
+              {publicRooms.length ? (
+                publicRooms.map((r) => (
+                  <div key={r.id} className="card" style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                      <div>
+                        <span className="pill">public</span>
+                        <h3 style={{ marginTop: 8 }}>{r.teamName}</h3>
+                        <p>{topicById(r.topicId)?.title || r.topicId}</p>
+                        <p className="muted-line">{r.audience?.blurb || 'Open to everyone'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn primary sm"
+                        disabled={busy || (user && r.memberIds?.includes(user.id))}
+                        onClick={() => {
+                          if (r.memberIds?.includes(user.id)) {
+                            loadRoom(r.id).then(() => setView('room'));
+                          } else {
+                            joinPublicRoom(r.id);
+                          }
+                        }}
+                      >
+                        {r.memberIds?.includes(user.id) ? 'Open' : 'Join'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty">No public rooms yet.</div>
+              )}
+            </div>
 
             <div className="card" id="create-room" style={{ maxWidth: 560 }}>
               <p className="eyebrow">New room</p>
@@ -789,6 +887,27 @@ export default function BrainAidApp({ initialInvite = '' }) {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="field">
+                <label>Room type</label>
+                <div className="chips">
+                  {[
+                    ['private', 'Private'],
+                    ['public', 'Public'],
+                  ].map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`chip ${createForm.visibility === id ? 'on' : ''}`}
+                      onClick={() => setCreateForm({ ...createForm, visibility: id })}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted-line" style={{ marginTop: 8 }}>
+                  Public rooms appear in Discover and anyone can join. Private needs an invite code.
+                </p>
               </div>
               <div className="field">
                 <label>Methods</label>
@@ -1205,7 +1324,7 @@ function RoomView({
       </div>
 
       <div className="invite-box" style={{ marginBottom: 14 }}>
-        <span>Invite:</span>
+        <span>{room.visibility === 'public' ? 'Public' : 'Invite'}:</span>
         <code>{room.inviteCode}</code>
         <button
           type="button"
@@ -1215,6 +1334,12 @@ function RoomView({
           Copy link
         </button>
       </div>
+      {(detail.audience || room.audience) && (
+        <div className="audience-card">
+          <p className="eyebrow">Who&apos;s learning here</p>
+          <p>{(detail.audience || room.audience).blurb}</p>
+        </div>
+      )}
 
       {myNudges.length > 0 && (
         <div className="banner nudge-banner">

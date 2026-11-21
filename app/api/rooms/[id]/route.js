@@ -1,6 +1,8 @@
 export const runtime = 'nodejs';
 
 import { BUILTIN_TOPICS } from '@/lib/builtinTopics';
+import { publicUser } from '@/lib/auth';
+import { summarizeAudience } from '@/lib/demographics';
 import { getDb, updateDb } from '@/lib/store';
 
 export async function GET(_req, context) {
@@ -9,11 +11,12 @@ export async function GET(_req, context) {
     const db = await getDb();
     const room = db.rooms[id];
     if (!room) return Response.json({ error: 'not found' }, { status: 404 });
-    const members = room.memberIds.map((uid) => db.users[uid]).filter(Boolean);
+    const members = room.memberIds.map((uid) => publicUser(db.users[uid])).filter(Boolean);
     const chat = db.chats[room.id] || [];
     const nudges = db.nudges[room.id] || [];
     const topic = db.topics[room.topicId] || BUILTIN_TOPICS[room.topicId] || null;
-    return Response.json({ room, members, chat, nudges, topic });
+    const audience = summarizeAudience(members);
+    return Response.json({ room, members, chat, nudges, topic, audience });
   } catch (e) {
     return Response.json({ error: e.message || 'Failed to load room' }, { status: 500 });
   }

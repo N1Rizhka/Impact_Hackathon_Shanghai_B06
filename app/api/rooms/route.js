@@ -1,5 +1,6 @@
 export const runtime = 'nodejs';
 
+import { summarizeAudience } from '@/lib/demographics';
 import { getDb, updateDb } from '@/lib/store';
 import { ensureTopic, ensureUser } from '@/lib/ensureUser';
 
@@ -7,14 +8,31 @@ function code() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function withAudience(db, room) {
+  const members = (room.memberIds || []).map((id) => db.users[id]).filter(Boolean);
+  return {
+    ...room,
+    audience: summarizeAudience(members),
+  };
+}
+
 export async function GET(req) {
   try {
-    const userId = new URL(req.url).searchParams.get('userId');
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('userId');
+    const scope = url.searchParams.get('scope'); // 'public' | 'mine' | null
     const db = await getDb();
-    const rooms = Object.values(db.rooms).filter((r) =>
-      userId ? r.memberIds.includes(userId) : true,
-    );
-    return Response.json({ rooms });
+
+    let rooms = Object.values(db.rooms);
+    if (scope === 'public') {
+      rooms = rooms.filter((r) => r.visibility === 'public');
+    } else if (userId) {
+      rooms = rooms.filter((r) => r.memberIds.includes(userId));
+    }
+
+    return Response.json({
+      rooms: rooms.map((r) => withAudience(db, r)),
+    });
   } catch (e) {
     return Response.json({ error: e.message || 'Failed to load rooms' }, { status: 500 });
   }
@@ -34,11 +52,14 @@ export async function POST(req) {
       deviceId,
       hostColor,
       topic,
+      visibility = 'private',
     } = body;
 
     if (!teamName?.trim() || !topicId || !hostId) {
       return Response.json({ error: 'teamName, topicId, hostId required' }, { status: 400 });
     }
+
+    const vis = visibility === 'public' ? 'public' : 'private';
 
     let room;
     await updateDb((db) => {
@@ -61,6 +82,7 @@ export async function POST(req) {
         hostId: host.id,
         memberIds: [host.id],
         inviteCode,
+        visibility: vis,
         sessionsByUser: {},
         createdAt: Date.now(),
       };
@@ -70,7 +92,8 @@ export async function POST(req) {
       return db;
     });
 
-    return Response.json({ room });
+    const db = await getDb();
+    return Response.json({ room: withAudience(db, room) });
   } catch (e) {
     console.error('[POST /api/rooms]', e);
     return Response.json({ error: e.message || 'Could not create room' }, { status: 500 });

@@ -5,9 +5,9 @@ import { ensureUser } from '@/lib/ensureUser';
 
 export async function POST(req) {
   try {
-    const { inviteCode, userId, userName, deviceId, userColor } = await req.json();
-    if (!inviteCode || !userId) {
-      return Response.json({ error: 'inviteCode and userId required' }, { status: 400 });
+    const { inviteCode, roomId, userId, userName, deviceId, userColor } = await req.json();
+    if ((!inviteCode && !roomId) || !userId) {
+      return Response.json({ error: 'inviteCode or roomId, and userId required' }, { status: 400 });
     }
 
     let room;
@@ -18,10 +18,20 @@ export async function POST(req) {
         deviceId,
         color: userColor,
       });
-      room = Object.values(db.rooms).find(
-        (r) => r.inviteCode.toUpperCase() === String(inviteCode).trim().toUpperCase(),
-      );
-      if (!room) throw new Error('invalid invite code');
+
+      if (roomId) {
+        room = db.rooms[roomId];
+        if (!room) throw new Error('room not found');
+        if (room.visibility !== 'public' && !room.memberIds.includes(user.id)) {
+          throw new Error('This room is private — ask for an invite code');
+        }
+      } else {
+        room = Object.values(db.rooms).find(
+          (r) => r.inviteCode.toUpperCase() === String(inviteCode).trim().toUpperCase(),
+        );
+        if (!room) throw new Error('invalid invite code');
+      }
+
       if (!room.memberIds.includes(user.id)) {
         room.memberIds.push(user.id);
       }
@@ -31,7 +41,8 @@ export async function POST(req) {
     return Response.json({ room });
   } catch (e) {
     const msg = e.message || 'Could not join room';
-    const status = msg === 'invalid invite code' ? 400 : 500;
+    const status =
+      msg === 'invalid invite code' || msg.includes('private') || msg === 'room not found' ? 400 : 500;
     return Response.json({ error: msg }, { status });
   }
 }
