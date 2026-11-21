@@ -101,11 +101,24 @@ export default function BrainAidApp({ initialInvite = '' }) {
       try {
         const existing = loadUser();
         if (existing?.id) {
-          setUser(existing);
-          setNameDraft(existing.name);
+          // Re-hydrate server memory (Vercel serverless has no durable store without Redis).
+          const deviceId = existing.deviceId || getDeviceId();
+          let u = existing;
+          try {
+            const synced = await api('/api/users', {
+              method: 'POST',
+              body: JSON.stringify({ name: existing.name, deviceId }),
+            });
+            u = synced.user || existing;
+            saveUser(u);
+          } catch {
+            // Keep local profile; create/join will upsert the host.
+          }
+          setUser(u);
+          setNameDraft(u.name);
           await refreshTopics();
-          await refreshRooms(existing.id);
-          await refreshFriends(existing.id);
+          await refreshRooms(u.id);
+          await refreshFriends(u.id);
           if (initialInvite) {
             setView('join');
             setInviteInput(initialInvite);
@@ -165,9 +178,17 @@ export default function BrainAidApp({ initialInvite = '' }) {
     setBusy(true);
     setError('');
     try {
+      const topic = topics.find((t) => t.id === createForm.topicId) || null;
       const { room } = await api('/api/rooms', {
         method: 'POST',
-        body: JSON.stringify({ ...createForm, hostId: user.id }),
+        body: JSON.stringify({
+          ...createForm,
+          hostId: user.id,
+          hostName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          hostColor: user.color,
+          topic,
+        }),
       });
       setCreateForm((f) => ({ ...f, teamName: '' }));
       await refreshRooms(user.id);
@@ -186,7 +207,13 @@ export default function BrainAidApp({ initialInvite = '' }) {
     try {
       const { room } = await api('/api/rooms/join', {
         method: 'POST',
-        body: JSON.stringify({ inviteCode: inviteInput.trim(), userId: user.id }),
+        body: JSON.stringify({
+          inviteCode: inviteInput.trim(),
+          userId: user.id,
+          userName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          userColor: user.color,
+        }),
       });
       await refreshRooms(user.id);
       await loadRoom(room.id);
@@ -208,6 +235,9 @@ export default function BrainAidApp({ initialInvite = '' }) {
           title: topicForm.title,
           material: topicForm.material,
           ownerId: user.id,
+          ownerName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          ownerColor: user.color,
         }),
       });
       await refreshTopics();
@@ -281,12 +311,15 @@ export default function BrainAidApp({ initialInvite = '' }) {
   }
 
   function topicById(id) {
-    return topics.find((t) => t.id === id);
+    return topics.find((t) => t.id === id) || (roomDetail?.topic?.id === id ? roomDetail.topic : null);
   }
 
   function startSession(mode) {
-    const topic = topicById(roomDetail.room.topicId);
-    if (!topic) return;
+    const topic = topicById(roomDetail.room.topicId) || roomDetail?.topic;
+    if (!topic) {
+      setError('Topic pack missing — recreate the room or pick a built-in topic.');
+      return;
+    }
     setSession({
       mode,
       topic,

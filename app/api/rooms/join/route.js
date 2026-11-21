@@ -1,29 +1,37 @@
 export const runtime = 'nodejs';
 
 import { updateDb } from '@/lib/store';
+import { ensureUser } from '@/lib/ensureUser';
 
 export async function POST(req) {
-  const { inviteCode, userId } = await req.json();
-  if (!inviteCode || !userId) {
-    return Response.json({ error: 'inviteCode and userId required' }, { status: 400 });
-  }
-
-  let room;
   try {
+    const { inviteCode, userId, userName, deviceId, userColor } = await req.json();
+    if (!inviteCode || !userId) {
+      return Response.json({ error: 'inviteCode and userId required' }, { status: 400 });
+    }
+
+    let room;
     await updateDb((db) => {
-      if (!db.users[userId]) throw new Error('user not found');
+      const user = ensureUser(db, {
+        id: userId,
+        name: userName,
+        deviceId,
+        color: userColor,
+      });
       room = Object.values(db.rooms).find(
         (r) => r.inviteCode.toUpperCase() === String(inviteCode).trim().toUpperCase(),
       );
       if (!room) throw new Error('invalid invite code');
-      if (!room.memberIds.includes(userId)) {
-        room.memberIds.push(userId);
+      if (!room.memberIds.includes(user.id)) {
+        room.memberIds.push(user.id);
       }
       return db;
     });
-  } catch (e) {
-    return Response.json({ error: e.message }, { status: 400 });
-  }
 
-  return Response.json({ room });
+    return Response.json({ room });
+  } catch (e) {
+    const msg = e.message || 'Could not join room';
+    const status = msg === 'invalid invite code' ? 400 : 500;
+    return Response.json({ error: msg }, { status });
+  }
 }
