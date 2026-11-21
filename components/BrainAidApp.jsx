@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Logo from './Logo';
 import { getDeviceId, loadUser, saveUser } from '@/lib/device';
+import { extractTextFromFiles } from '@/lib/extractMaterial';
 
 const METHODS = [
   { id: 'flashcards', label: 'Flashcards', blurb: 'Spaced recall' },
@@ -72,6 +73,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
   });
   const [topicForm, setTopicForm] = useState({ title: '', material: '' });
   const [busy, setBusy] = useState(false);
+  const [extractStatus, setExtractStatus] = useState('');
 
   const refreshTopics = useCallback(async () => {
     const data = await api('/api/topics');
@@ -613,7 +615,9 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <div className="split">
               <div className="card">
                 <h3>Create from study materials</h3>
-                <p style={{ marginBottom: 12 }}>Paste notes or upload a text file.</p>
+                <p style={{ marginBottom: 12 }}>
+                  Paste notes, or upload PDFs, images, and text files.
+                </p>
                 <div className="field">
                   <label>Topic title</label>
                   <input
@@ -627,25 +631,40 @@ export default function BrainAidApp({ initialInvite = '' }) {
                   <textarea
                     value={topicForm.material}
                     onChange={(e) => setTopicForm({ ...topicForm, material: e.target.value })}
-                    placeholder="Paste lecture notes, article text, etc."
+                    placeholder="Paste lecture notes, or upload files below…"
                   />
                 </div>
                 <div className="field">
-                  <label>Or upload .txt / .md</label>
+                  <label>Upload PDF, images, or text</label>
                   <input
                     type="file"
-                    accept=".txt,.md,text/plain"
+                    multiple
+                    accept=".pdf,.txt,.md,.markdown,image/*,.png,.jpg,.jpeg,.webp,.gif"
                     onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const text = await file.text();
-                      setTopicForm((f) => ({
-                        title: f.title || file.name.replace(/\.\w+$/, ''),
-                        material: text,
-                      }));
+                      const files = e.target.files;
+                      if (!files?.length) return;
+                      setBusy(true);
+                      setError('');
+                      setExtractStatus('Starting…');
+                      try {
+                        const text = await extractTextFromFiles(files, setExtractStatus);
+                        const firstName = files[0].name.replace(/\.\w+$/, '');
+                        setTopicForm((f) => ({
+                          title: f.title || firstName,
+                          material: f.material ? `${f.material.trim()}\n\n${text}` : text,
+                        }));
+                        setExtractStatus(`Added text from ${files.length} file${files.length === 1 ? '' : 's'}.`);
+                      } catch (err) {
+                        setError(err.message || 'Could not read those files');
+                        setExtractStatus('');
+                      } finally {
+                        setBusy(false);
+                        e.target.value = '';
+                      }
                     }}
                   />
                 </div>
+                {extractStatus && <p className="toast ok">{extractStatus}</p>}
                 <button type="button" className="btn pink" disabled={busy} onClick={createTopic}>
                   Generate learning tasks
                 </button>
