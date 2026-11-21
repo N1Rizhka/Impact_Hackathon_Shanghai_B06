@@ -1,0 +1,61 @@
+:root {
+  --ink: #0e1f1a;
+  --pine: #114b3a;
+  --pine-deep: #0a3227;
+  --foam: #e8f3ee;
+  --mist: #d4e8df;
+  --paper: #f4faf7;
+  --amber: #e8a838;
+  --amber-hot: #f0b84a;
+  --coral: #e06b4a;
+  --sky: #7eb8c9;
+  --muted: #5a736a;
+  --stroke: rgba(17, 75, 58, 0.14);
+  --shadow-soft: 0 24px 60px rgba(14, 31, 26, 0.12);
+  --radius: 22px;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Manrope', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  background:
+    radial-gradient(1200px 700px at 12% -10%, rgba(126, 184, 201, 0.45), transparent 55%),
+    radial-gradient(900px 600px at 90% 8%, rgba(232, 168, 56, 0.28), transparent 50%),
+    radial-gradient(800px 500px at 50% 100%, rgba(17, 75, 58, 0.12), transparent 45%),
+    linear-gradient(165deg, #eef7f3 0%, #f7fbf9 42%, #e6f0eb 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(232, 168, 56, 0.35);
+}
