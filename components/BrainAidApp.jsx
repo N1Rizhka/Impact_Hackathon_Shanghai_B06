@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Logo from './Logo';
+import { QuizLeaderboard, SponsorPerks, TeamTimeline } from './RoomTeamPanels';
 import { getDeviceId, loadUser, saveUser } from '@/lib/device';
 import { extractTextFromFiles } from '@/lib/extractMaterial';
+import { memberPoints } from '@/lib/scoring';
 
 const METHODS = [
-  { id: 'flashcards', label: 'Flashcards', blurb: 'Spaced recall' },
-  { id: 'errorHunt', label: 'Error hunt', blurb: 'Catch planted mistakes' },
-  { id: 'quiz', label: 'Quiz', blurb: 'Multiple choice' },
-  { id: 'explain', label: 'Explain-back', blurb: 'Teach it yourself' },
+  { id: 'flashcards', label: 'Flashcards', blurb: 'Spaced recall practice', kind: 'practice' },
+  { id: 'errorHunt', label: 'Error hunt', blurb: 'Catch planted mistakes', kind: 'practice' },
+  { id: 'openQ', label: 'Open questions', blurb: 'AI-written reflection prompts', kind: 'practice' },
+  { id: 'explain', label: 'Explain-back', blurb: 'Teach it yourself', kind: 'practice' },
+  { id: 'quiz', label: 'Checkpoint quiz', blurb: 'Competitive team checkpoint', kind: 'checkpoint' },
 ];
 
 async function api(path, opts) {
@@ -68,12 +71,15 @@ export default function BrainAidApp({ initialInvite = '' }) {
     teamName: '',
     topicId: 'photosynthesis',
     period: 14,
-    methods: ['flashcards', 'errorHunt', 'quiz'],
+    methods: ['flashcards', 'errorHunt', 'openQ', 'quiz'],
     quizEvery: 2,
   });
   const [topicForm, setTopicForm] = useState({ title: '', material: '' });
   const [busy, setBusy] = useState(false);
   const [extractStatus, setExtractStatus] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const [toastNudge, setToastNudge] = useState(null);
+  const seenNudgeIds = useMemo(() => new Set(), []);
 
   const refreshTopics = useCallback(async () => {
     const data = await api('/api/topics');
@@ -140,6 +146,48 @@ export default function BrainAidApp({ initialInvite = '' }) {
     }, 2500);
     return () => clearInterval(t);
   }, [activeRoomId, view, loadRoom]);
+
+  // Global nudge notifications — fire even outside the room view
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const data = await api(`/api/notifications?userId=${user.id}`);
+        if (cancelled) return;
+        const list = data.notifications || [];
+        setNotifications(list);
+        const fresh = list.find((n) => !seenNudgeIds.has(n.id));
+        if (fresh) {
+          seenNudgeIds.add(fresh.id);
+          setToastNudge(fresh);
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`Nudge from ${fresh.fromName}`, {
+                body: `${fresh.roomName}: ${fresh.note}`,
+              });
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      } catch {
+        /* ignore transient poll errors */
+      }
+    };
+    tick();
+    const t = setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [user?.id, seenNudgeIds]);
+
+  useEffect(() => {
+    if (!toastNudge) return undefined;
+    const t = setTimeout(() => setToastNudge(null), 8000);
+    return () => clearTimeout(t);
+  }, [toastNudge]);
 
   useEffect(() => {
     if (!dmFriend || !user) return undefined;
@@ -280,10 +328,48 @@ export default function BrainAidApp({ initialInvite = '' }) {
         }),
       });
       await loadRoom(activeRoomId);
+      setError('');
+      // Soft confirm for sender
+      setToastNudge({
+        id: `local_${Date.now()}`,
+        fromName: 'Sent',
+        roomName: roomDetail?.room?.teamName || 'Room',
+        note: 'Your teammate will see a notification in Brain Aid.',
+        local: true,
+      });
     } catch (e) {
       setError(e.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function dismissNotifications(opts = {}) {
+    if (!user?.id) return;
+    try {
+      await api('/api/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, ...opts }),
+      });
+      setNotifications((prev) => {
+        if (opts.nudgeIds?.length) {
+          return prev.filter((n) => !opts.nudgeIds.includes(n.id));
+        }
+        if (opts.roomId) return prev.filter((n) => n.roomId !== opts.roomId);
+        return [];
+      });
+      setToastNudge(null);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function openNudge(n) {
+    dismissNotifications({ nudgeIds: [n.id] });
+    if (n.roomId) {
+      loadRoom(n.roomId)
+        .then(() => setView('room'))
+        .catch((e) => setError(e.message));
     }
   }
 
@@ -320,6 +406,14 @@ export default function BrainAidApp({ initialInvite = '' }) {
       setError('Topic pack missing — recreate the room or pick a built-in topic.');
       return;
     }
+    if (mode === 'quiz' && !(topic.quiz || []).length) {
+      setError('This topic has no checkpoint quiz yet.');
+      return;
+    }
+    if (mode === 'openQ' && !(topic.openQuestions || []).length) {
+      setError('This topic has no open questions yet — regenerate with AI or pick another topic.');
+      return;
+    }
     setSession({
       mode,
       topic,
@@ -332,18 +426,29 @@ export default function BrainAidApp({ initialInvite = '' }) {
       quizScore: 0,
       explainText: '',
       explainDone: false,
+      openIdx: 0,
+      openText: '',
+      openAnswers: [],
     });
     setView('session');
   }
 
   async function finishSession() {
+    const payload = {
+      action: 'completeSession',
+      userId: user.id,
+      mode: session.mode,
+    };
+    if (session.mode === 'quiz') {
+      payload.score = session.quizScore;
+      payload.total = session.topic.quiz?.length || 0;
+    }
+    if (session.mode === 'openQ') {
+      payload.meta = { answers: session.openAnswers || [] };
+    }
     await api(`/api/rooms/${activeRoomId}`, {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'completeSession',
-        userId: user.id,
-        mode: session.mode,
-      }),
+      body: JSON.stringify(payload),
     });
     setSession(null);
     await loadRoom(activeRoomId);
@@ -353,7 +458,10 @@ export default function BrainAidApp({ initialInvite = '' }) {
 
   const myNudges = useMemo(() => {
     if (!roomDetail || !user) return [];
-    return (roomDetail.nudges || []).filter((n) => n.toUserId === user.id).slice(-5).reverse();
+    return (roomDetail.nudges || [])
+      .filter((n) => n.toUserId === user.id && !n.read)
+      .slice(-5)
+      .reverse();
   }, [roomDetail, user]);
 
   if (boot) {
@@ -425,9 +533,28 @@ export default function BrainAidApp({ initialInvite = '' }) {
               onClick={() => setView(id)}
             >
               {label}
+              {id === 'rooms' && notifications.length > 0 ? (
+                <span className="nav-badge">{notifications.length}</span>
+              ) : null}
             </button>
           ))}
         </nav>
+        {notifications.length > 0 && (
+          <div className="nudge-inbox">
+            <p className="eyebrow">Nudges</p>
+            {notifications.slice(0, 4).map((n) => (
+              <button key={n.id} type="button" className="nudge-inbox-item" onClick={() => openNudge(n)}>
+                <strong>{n.fromName}</strong>
+                <span>
+                  {n.roomName}: {n.note}
+                </span>
+              </button>
+            ))}
+            <button type="button" className="btn sm ghost" onClick={() => dismissNotifications({})}>
+              Clear all
+            </button>
+          </div>
+        )}
       </aside>
 
       <main className="main">
@@ -436,6 +563,40 @@ export default function BrainAidApp({ initialInvite = '' }) {
             {error}{' '}
             <button type="button" className="btn sm" onClick={() => setError('')}>
               Dismiss
+            </button>
+          </div>
+        )}
+
+        {toastNudge && !toastNudge.local && (
+          <div className="nudge-toast" role="status">
+            <div>
+              <strong>Nudge from {toastNudge.fromName}</strong>
+              <p>
+                {toastNudge.roomName}: {toastNudge.note}
+              </p>
+            </div>
+            <div className="actions" style={{ marginTop: 0 }}>
+              <button type="button" className="btn sm primary" onClick={() => openNudge(toastNudge)}>
+                Open room
+              </button>
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => dismissNotifications({ nudgeIds: [toastNudge.id] })}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+        {toastNudge?.local && (
+          <div className="nudge-toast sent" role="status">
+            <div>
+              <strong>{toastNudge.fromName}</strong>
+              <p>{toastNudge.note}</p>
+            </div>
+            <button type="button" className="btn sm" onClick={() => setToastNudge(null)}>
+              OK
             </button>
           </div>
         )}
@@ -829,7 +990,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
           <RoomView
             user={user}
             detail={roomDetail}
-            topic={topicById(roomDetail.room.topicId)}
+            topic={topicById(roomDetail.room.topicId) || roomDetail.topic}
             myNudges={myNudges}
             chatText={chatText}
             setChatText={setChatText}
@@ -837,6 +998,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
             onNudge={sendNudge}
             onStart={startSession}
             onOpenChat={() => setView('chat')}
+            onClearNudges={() => dismissNotifications({ roomId: roomDetail.room.id })}
           />
         )}
 
@@ -928,6 +1090,7 @@ function RoomView({
   onNudge,
   onStart,
   onOpenChat,
+  onClearNudges,
 }) {
   const { room, members } = detail;
   // NEXT_PUBLIC_APP_URL should be your public production host (not an SSO-locked preview).
@@ -937,13 +1100,27 @@ function RoomView({
   ).replace(/\/$/, '');
   const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
+  const practiceMethods = (room.methods || []).filter((id) => {
+    const m = METHODS.find((x) => x.id === id);
+    return m && m.kind !== 'checkpoint';
+  });
+  const checkpointMethods = (room.methods || []).filter((id) => {
+    const m = METHODS.find((x) => x.id === id);
+    return m?.kind === 'checkpoint';
+  });
+  // Always surface checkpoint quiz even if older rooms omitted it
+  if (!checkpointMethods.includes('quiz')) checkpointMethods.push('quiz');
+  if (!practiceMethods.includes('openQ') && (topic?.openQuestions || []).length) {
+    practiceMethods.push('openQ');
+  }
+
   const rankings = members
     .map((m) => {
-      const sessions = room.sessionsByUser?.[m.id]?.length || 0;
+      const sessions = room.sessionsByUser?.[m.id] || [];
       return {
         ...m,
-        score: 60 + sessions * 8 + (m.id === user.id ? 2 : 0),
-        sessions,
+        score: memberPoints(sessions),
+        sessions: sessions.length,
         isYou: m.id === user.id,
       };
     })
@@ -980,19 +1157,29 @@ function RoomView({
       </div>
 
       {myNudges.length > 0 && (
-        <div className="banner">
-          Nudges:{' '}
-          {myNudges.map((n) => `${n.fromName}: ${n.note}`).join(' · ')}
+        <div className="banner nudge-banner">
+          <div>
+            <strong>New nudges</strong>
+            <p style={{ margin: '4px 0 0' }}>
+              {myNudges.map((n) => `${n.fromName}: ${n.note}`).join(' · ')}
+            </p>
+          </div>
+          <button type="button" className="btn sm" onClick={onClearNudges}>
+            Mark read
+          </button>
         </div>
       )}
+
+      <TeamTimeline room={room} members={members} />
 
       <div className="split">
         <div>
           <div className="card" style={{ marginBottom: 12 }}>
-            <p className="eyebrow">Learn</p>
+            <p className="eyebrow">Practice</p>
             <div className="mode-grid">
-              {room.methods.map((id) => {
+              {practiceMethods.map((id) => {
                 const m = METHODS.find((x) => x.id === id);
+                if (!m) return null;
                 return (
                   <button
                     key={id}
@@ -1007,6 +1194,30 @@ function RoomView({
               })}
             </div>
           </div>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <p className="eyebrow">Checkpoints</p>
+            <p className="muted-line" style={{ marginBottom: 10 }}>
+              Timed team challenge — scores are ranked for everyone in the room.
+            </p>
+            <div className="mode-grid">
+              {checkpointMethods.map((id) => {
+                const m = METHODS.find((x) => x.id === id);
+                if (!m) return null;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="mode-btn checkpoint"
+                    onClick={() => onStart(id)}
+                  >
+                    <strong>{m.label}</strong>
+                    <span>{m.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <QuizLeaderboard room={room} members={members} userId={user.id} />
           <div className="card">
             <p className="eyebrow">Quick room chat</p>
             <div className="chat" style={{ maxHeight: 180 }}>
@@ -1035,8 +1246,9 @@ function RoomView({
           <div className="card" style={{ marginBottom: 12 }}>
             <p className="eyebrow">Team</p>
             {members.map((m) => {
-              const sessions = room.sessionsByUser?.[m.id]?.length || 0;
-              const idle = sessions === 0;
+              const sessions = room.sessionsByUser?.[m.id] || [];
+              const pts = memberPoints(sessions);
+              const idle = sessions.length === 0;
               return (
                 <div key={m.id} className="member-row">
                   {avatar(m.name, m.color, 34)}
@@ -1046,7 +1258,7 @@ function RoomView({
                       {m.id === user.id ? ' (you)' : ''}
                     </strong>
                     <span>
-                      {sessions} session{sessions === 1 ? '' : 's'}
+                      {pts} pts · {sessions.length} session{sessions.length === 1 ? '' : 's'}
                       {idle ? " · hasn't started" : ''}
                     </span>
                   </div>
@@ -1064,8 +1276,8 @@ function RoomView({
               );
             })}
           </div>
-          <div className="card">
-            <p className="eyebrow">Commitment board</p>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <p className="eyebrow">Points board</p>
             <ol className="rank">
               {rankings.map((m, i) => (
                 <li key={m.id} className={m.isYou ? 'you' : ''}>
@@ -1079,6 +1291,7 @@ function RoomView({
               ))}
             </ol>
           </div>
+          <SponsorPerks room={room} members={members} />
         </div>
       </div>
     </>
@@ -1108,6 +1321,9 @@ function SessionView({ session, setSession, onExit, onFinish }) {
         )}
         {mode === 'quiz' && (
           <QuizSession session={session} setSession={setSession} onFinish={onFinish} />
+        )}
+        {mode === 'openQ' && (
+          <OpenQuestionSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
         {mode === 'explain' && (
           <ExplainSession session={session} setSession={setSession} onFinish={onFinish} />
@@ -1239,23 +1455,29 @@ function HuntSession({ session, setSession, onFinish }) {
 
 function QuizSession({ session, setSession, onFinish }) {
   const { topic, quizIdx, quizPick, quizScore } = session;
-  if (quizIdx >= topic.quiz.length) {
+  const quiz = topic.quiz || [];
+  if (quizIdx >= quiz.length) {
+    const pct = quiz.length ? Math.round((quizScore / quiz.length) * 100) : 0;
     return (
       <>
+        <p className="eyebrow">Checkpoint complete</p>
         <h3>
-          Score {quizScore}/{topic.quiz.length}
+          You scored {quizScore}/{quiz.length} ({pct}%)
         </h3>
+        <p className="muted-line">
+          Submit to post this run on the team leaderboard — teammates will see who did better.
+        </p>
         <button type="button" className="btn primary" onClick={onFinish}>
-          Finish
+          Post to team board
         </button>
       </>
     );
   }
-  const item = topic.quiz[quizIdx];
+  const item = quiz[quizIdx];
   return (
     <>
       <p className="eyebrow">
-        Q{quizIdx + 1}/{topic.quiz.length}
+        Checkpoint · Q{quizIdx + 1}/{quiz.length}
       </p>
       <h3 style={{ marginBottom: 12 }}>{item.q}</h3>
       {item.options.map((opt, i) => {
@@ -1293,6 +1515,82 @@ function QuizSession({ session, setSession, onFinish }) {
           </button>
         </div>
       )}
+    </>
+  );
+}
+
+function OpenQuestionSession({ session, setSession, onFinish }) {
+  const { topic, openIdx, openText, openAnswers } = session;
+  const questions = topic.openQuestions || [];
+  if (!questions.length) {
+    return (
+      <>
+        <h3>No open questions on this topic</h3>
+        <button type="button" className="btn primary" onClick={onFinish}>
+          Back
+        </button>
+      </>
+    );
+  }
+  if (openIdx >= questions.length) {
+    return (
+      <>
+        <p className="eyebrow">AI learning evidence</p>
+        <h3>Open questions complete</h3>
+        <p className="muted-line">
+          Your written answers are saved with this session as proof of reflective learning.
+        </p>
+        <ul className="open-recap">
+          {openAnswers.map((a, i) => (
+            <li key={i}>
+              <strong>{a.q}</strong>
+              <span>{a.text}</span>
+              <em>Keywords hit: {a.hits?.join(', ') || 'none'}</em>
+            </li>
+          ))}
+        </ul>
+        <button type="button" className="btn primary" onClick={onFinish}>
+          Save session
+        </button>
+      </>
+    );
+  }
+  const item = questions[openIdx];
+  return (
+    <>
+      <p className="eyebrow">
+        Open question · {openIdx + 1}/{questions.length}
+      </p>
+      <h3>{item.q}</h3>
+      <p className="muted-line">{item.guidance}</p>
+      <div className="field">
+        <textarea
+          value={openText}
+          onChange={(e) => setSession({ ...session, openText: e.target.value })}
+          placeholder="Write your answer…"
+          rows={5}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn primary"
+        disabled={openText.trim().length < 12}
+        onClick={() => {
+          const lower = openText.toLowerCase();
+          const hits = (item.keywords || []).filter((k) => lower.includes(String(k).toLowerCase()));
+          setSession({
+            ...session,
+            openAnswers: [
+              ...openAnswers,
+              { q: item.q, text: openText.trim(), hits, at: Date.now() },
+            ],
+            openIdx: openIdx + 1,
+            openText: '',
+          });
+        }}
+      >
+        Submit answer
+      </button>
     </>
   );
 }
