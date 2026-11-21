@@ -745,6 +745,130 @@ a { color: inherit; }
   border: 1px solid var(--ink);
 }
 
+/* Source-paragraph “P” cites */
+.question-with-cite {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.question-with-cite-text { flex: 1; min-width: 0; }
+.flash-cite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.passage-cite {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.passage-p {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.85rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.passage-p:hover,
+.passage-cite.open .passage-p,
+.passage-p.demo {
+  background: var(--yellow);
+  transform: translateY(-1px);
+}
+.passage-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, 78vw);
+  padding: 12px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: #fffef8;
+  box-shadow: 4px 4px 0 var(--ink);
+  z-index: 20;
+  animation: passage-pop 0.18s ease-out;
+}
+.passage-tip strong {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.passage-tip em {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+@keyframes passage-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.passage-tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 7, 7, 0.45);
+  animation: passage-pop 0.2s ease-out;
+}
+.passage-tutorial-card {
+  width: min(440px, 100%);
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+  box-shadow: 8px 8px 0 var(--ink);
+}
+.passage-tutorial-card p { margin: 0 0 12px; }
+.passage-tutorial-demo {
+  margin: 14px 0 18px;
+  padding: 12px;
+  border: 2px dashed var(--ink);
+  border-radius: 14px;
+  background: #f7fbff;
+}
+.passage-tutorial-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+.passage-tutorial-row strong {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+.passage-tip.static {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: auto;
+  margin-top: 10px;
+  display: block;
+}
+
 @media (max-width: 920px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar {
@@ -757,4 +881,5 @@ a { color: inherit; }
   .nav { display: flex; flex-wrap: wrap; }
   .split, .grid.cols-2, .grid.cols-3, .mode-grid, .info-strip { grid-template-columns: 1fr 1fr; }
   .info-strip { grid-template-columns: 1fr 1fr; }
+  .passage-tip { left: auto; right: -4px; }
 }

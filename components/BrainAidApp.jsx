@@ -3,9 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Logo from './Logo';
 import AuthScreen from './AuthScreen';
+import PassageCite, { PassageTutorial } from './PassageCite';
 import { SponsorStrip, TeamTimeline } from './RoomTeamPanels';
-import { getDeviceId, loadPremium, loadUser, savePremium, saveUser } from '@/lib/device';
+import {
+  getDeviceId,
+  loadPassageTipSeen,
+  loadPremium,
+  loadUser,
+  savePassageTipSeen,
+  savePremium,
+  saveUser,
+} from '@/lib/device';
 import { extractTextFromFiles } from '@/lib/extractMaterial';
+import { attachPassagesToTopic } from '@/lib/passages';
 import { isPremiumMethod, PREMIUM_PRICE_USD } from '@/lib/premium';
 import { memberPoints } from '@/lib/scoring';
 
@@ -476,9 +486,10 @@ export default function BrainAidApp({ initialInvite = '' }) {
   }
 
   function beginSession(mode, topic) {
+    const withPassages = attachPassagesToTopic(topic);
     setSession({
       mode,
-      topic,
+      topic: withPassages,
       cardIdx: 0,
       flipped: false,
       found: [],
@@ -491,6 +502,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
       openIdx: 0,
       openText: '',
       openAnswers: [],
+      showPassageTutorial: !loadPassageTipSeen() && hasAnyPassage(withPassages),
       chatMessages: [
         {
           role: 'assistant',
@@ -1459,8 +1471,32 @@ function RoomView({
   );
 }
 
+function hasAnyPassage(topic) {
+  if (!topic) return false;
+  if (topic.explainSourcePassage) return true;
+  return (
+    (topic.flashcards || []).some((c) => c.sourcePassage) ||
+    (topic.quiz || []).some((q) => q.sourcePassage) ||
+    (topic.openQuestions || []).some((q) => q.sourcePassage)
+  );
+}
+
+function QuestionWithCite({ children, passage }) {
+  return (
+    <div className="question-with-cite">
+      <div className="question-with-cite-text">{children}</div>
+      <PassageCite passage={passage} />
+    </div>
+  );
+}
+
 function SessionView({ session, setSession, onExit, onFinish }) {
   const { mode, topic } = session;
+
+  function dismissPassageTutorial() {
+    savePassageTipSeen();
+    setSession({ ...session, showPassageTutorial: false });
+  }
 
   return (
     <>
@@ -1492,7 +1528,14 @@ function SessionView({ session, setSession, onExit, onFinish }) {
         {mode === 'photoSchemes' && (
           <PhotoSchemesSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
+        {mode === 'openQ' && (
+          <OpenQuestionSession session={session} setSession={setSession} onFinish={onFinish} />
+        )}
+        {mode === 'explain' && (
+          <ExplainSession session={session} setSession={setSession} onFinish={onFinish} />
+        )}
       </div>
+      {session.showPassageTutorial && <PassageTutorial onDismiss={dismissPassageTutorial} />}
     </>
   );
 }
@@ -1502,15 +1545,19 @@ function FlashSession({ session, setSession, onFinish }) {
   const last = session.cardIdx >= session.topic.flashcards.length - 1;
   return (
     <>
+      <div className="flash-cite-row">
+        <span className="muted-line">
+          Card {session.cardIdx + 1}/{session.topic.flashcards.length}
+        </span>
+        <PassageCite passage={card.sourcePassage} />
+      </div>
       <button
         type="button"
         className={`flash ${session.flipped ? 'is-flipped' : ''}`}
         onClick={() => setSession({ ...session, flipped: !session.flipped })}
       >
         <div className="flash-face front">
-          <span>
-            Card {session.cardIdx + 1}/{session.topic.flashcards.length}
-          </span>
+          <span>Prompt</span>
           <p>{card.front}</p>
           <em>Tap to flip</em>
         </div>
@@ -1643,7 +1690,9 @@ function QuizSession({ session, setSession, onFinish }) {
       <p className="eyebrow">
         Checkpoint · Q{quizIdx + 1}/{quiz.length}
       </p>
-      <h3 style={{ marginBottom: 12 }}>{item.q}</h3>
+      <QuestionWithCite passage={item.sourcePassage}>
+        <h3 style={{ marginBottom: 0, marginTop: 0 }}>{item.q}</h3>
+      </QuestionWithCite>
       {item.options.map((opt, i) => {
         let cls = 'quiz-opt';
         if (quizPick !== null) {
@@ -1977,7 +2026,9 @@ function OpenQuestionSession({ session, setSession, onFinish }) {
       <p className="eyebrow">
         Open question · {openIdx + 1}/{questions.length}
       </p>
-      <h3>{item.q}</h3>
+      <QuestionWithCite passage={item.sourcePassage}>
+        <h3 style={{ marginTop: 0, marginBottom: 0 }}>{item.q}</h3>
+      </QuestionWithCite>
       <p className="muted-line">{item.guidance}</p>
       <div className="field">
         <textarea
@@ -2026,7 +2077,9 @@ function ExplainSession({ session, setSession, onFinish }) {
   }
   return (
     <>
-      <h3>{topic.explainPrompt}</h3>
+      <QuestionWithCite passage={topic.explainSourcePassage}>
+        <h3 style={{ marginTop: 0, marginBottom: 0 }}>{topic.explainPrompt}</h3>
+      </QuestionWithCite>
       <div className="field">
         <textarea
           value={explainText}
