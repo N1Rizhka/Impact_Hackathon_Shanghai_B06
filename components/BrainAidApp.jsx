@@ -211,7 +211,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
       await refreshTopics();
       setCreateForm((f) => ({ ...f, topicId: topic.id }));
       setTopicForm({ title: '', material: '' });
-      setView('create');
+      setView('rooms');
     } catch (e) {
       setError(e.message);
     } finally {
