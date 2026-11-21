@@ -1,13 +1,27 @@
-# Impact Hackathon Shanghai — B06
+# Brain Aid
 
-## Brain Aid
+Lifelong learning rooms with friends — custom topics, nudges, chat, and pair streaks.
+
+## Local
 
 ```bash
-cd brain-aid-demo
 npm install
 npm run dev
 ```
 
-Deploy `brain-aid-demo` to Vercel. Add Upstash Redis for cross-device invites.
+Open [http://localhost:3000](http://localhost:3000).
 
-See [`brain-aid-demo/README.md`](brain-aid-demo/README.md).
+## Deploy on Vercel
+
+1. Connect this GitHub repo (use the **repository root** — no subdirectory).
+2. Framework preset: **Next.js** (auto-detected).
+3. Optional but recommended for multi-device invites: add **Upstash Redis** in Vercel Storage and redeploy.
+4. Env vars: see `.env.example`.
+
+## One user per computer
+
+The first profile created in a browser is locked to that device.
+
+## Invite friends
+
+Create a room → copy the invite code or `/join/CODE` link → friend opens it on another computer.
