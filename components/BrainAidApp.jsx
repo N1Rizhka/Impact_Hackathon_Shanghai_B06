@@ -167,6 +167,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
         method: 'POST',
         body: JSON.stringify({ ...createForm, hostId: user.id }),
       });
+      setCreateForm((f) => ({ ...f, teamName: '' }));
       await refreshRooms(user.id);
       await loadRoom(room.id);
       setView('room');
@@ -373,8 +374,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
         <nav className="nav">
           {[
             ['home', 'Home'],
-            ['rooms', 'My rooms'],
-            ['create', 'Create room'],
+            ['rooms', 'Rooms'],
             ['join', 'Join invite'],
             ['topics', 'Topics'],
             ['friends', 'Friends'],
@@ -382,7 +382,11 @@ export default function BrainAidApp({ initialInvite = '' }) {
             <button
               key={id}
               type="button"
-              className={view === id || (id === 'rooms' && view === 'room') ? 'active' : ''}
+              className={
+                view === id || (id === 'rooms' && (view === 'room' || view === 'create'))
+                  ? 'active'
+                  : ''
+              }
               onClick={() => setView(id)}
             >
               {label}
@@ -408,8 +412,8 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 <h1>Hey, {user.name}</h1>
                 <p>Rooms, friends, custom topics — pick a path and go.</p>
               </div>
-              <button type="button" className="btn primary" onClick={() => setView('create')}>
-                Create room
+              <button type="button" className="btn primary" onClick={() => setView('rooms')}>
+                Rooms
               </button>
             </div>
             <div className="grid cols-3" style={{ marginBottom: 14 }}>
@@ -471,65 +475,43 @@ export default function BrainAidApp({ initialInvite = '' }) {
           </>
         )}
 
-        {view === 'rooms' && (
+        {(view === 'rooms' || view === 'create') && (
           <>
             <div className="topbar">
               <div>
-                <h1>My rooms</h1>
-                <p>Open a room to learn, chat, or nudge.</p>
+                <h1>Rooms</h1>
+                <p>Open a room or create a new one.</p>
               </div>
+              <a className="btn primary" href="#create-room">
+                Create a room
+              </a>
             </div>
-            <div className="grid cols-2">
-              {rooms.map((r) => (
-                <div
-                  key={r.id}
-                  className="card clickable"
-                  onClick={() => loadRoom(r.id).then(() => setView('room'))}
-                >
-                  <p className="eyebrow">{r.inviteCode}</p>
-                  <h3>{r.teamName}</h3>
-                  <p>
-                    {topicById(r.topicId)?.title} · {r.memberIds.length} members
-                  </p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
-        {view === 'join' && (
-          <>
-            <div className="topbar">
-              <div>
-                <h1>Join with invite</h1>
-                <p>Enter a room code from a friend.</p>
+            {rooms.length ? (
+              <div className="grid cols-2" style={{ marginBottom: 18 }}>
+                {rooms.map((r) => (
+                  <div
+                    key={r.id}
+                    className="card clickable"
+                    onClick={() => loadRoom(r.id).then(() => setView('room'))}
+                  >
+                    <p className="eyebrow">{r.inviteCode}</p>
+                    <h3>{r.teamName}</h3>
+                    <p>
+                      {topicById(r.topicId)?.title} · {r.memberIds.length} members
+                    </p>
+                  </div>
+                ))}
               </div>
-            </div>
-            <div className="card" style={{ maxWidth: 480 }}>
-              <div className="field">
-                <label>Invite code</label>
-                <input
-                  value={inviteInput}
-                  onChange={(e) => setInviteInput(e.target.value.toUpperCase())}
-                  placeholder="ABC123"
-                />
+            ) : (
+              <div className="empty" style={{ marginBottom: 18 }}>
+                No rooms yet.
               </div>
-              <button type="button" className="btn primary" disabled={busy} onClick={joinRoom}>
-                Join room
-              </button>
-            </div>
-          </>
-        )}
+            )}
 
-        {view === 'create' && (
-          <>
-            <div className="topbar">
-              <div>
-                <h1>Create room</h1>
-                <p>Name the crew, pick a topic, share the invite.</p>
-              </div>
-            </div>
-            <div className="card" style={{ maxWidth: 560 }}>
+            <div className="card" id="create-room" style={{ maxWidth: 560 }}>
+              <p className="eyebrow">New room</p>
+              <h3 style={{ marginBottom: 12 }}>Create a room</h3>
               <div className="field">
                 <label>Team name</label>
                 <input
@@ -591,6 +573,30 @@ export default function BrainAidApp({ initialInvite = '' }) {
               </div>
               <button type="button" className="btn primary" disabled={busy} onClick={createRoom}>
                 Create & get invite code
+              </button>
+            </div>
+          </>
+        )}
+
+        {view === 'join' && (
+          <>
+            <div className="topbar">
+              <div>
+                <h1>Join with invite</h1>
+                <p>Enter a room code from a friend.</p>
+              </div>
+            </div>
+            <div className="card" style={{ maxWidth: 480 }}>
+              <div className="field">
+                <label>Invite code</label>
+                <input
+                  value={inviteInput}
+                  onChange={(e) => setInviteInput(e.target.value.toUpperCase())}
+                  placeholder="ABC123"
+                />
+              </div>
+              <button type="button" className="btn primary" disabled={busy} onClick={joinRoom}>
+                Join room
               </button>
             </div>
           </>
@@ -659,7 +665,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                         className="btn sm primary"
                         onClick={() => {
                           setCreateForm((f) => ({ ...f, topicId: t.id }));
-                          setView('create');
+                          setView('rooms');
                         }}
                       >
                         Use in a room
