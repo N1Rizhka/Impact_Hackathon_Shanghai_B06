@@ -101,11 +101,24 @@ export default function BrainAidApp({ initialInvite = '' }) {
       try {
         const existing = loadUser();
         if (existing?.id) {
-          setUser(existing);
-          setNameDraft(existing.name);
+          // Re-hydrate server memory (Vercel serverless has no durable store without Redis).
+          const deviceId = existing.deviceId || getDeviceId();
+          let u = existing;
+          try {
+            const synced = await api('/api/users', {
+              method: 'POST',
+              body: JSON.stringify({ name: existing.name, deviceId }),
+            });
+            u = synced.user || existing;
+            saveUser(u);
+          } catch {
+            // Keep local profile; create/join will upsert the host.
+          }
+          setUser(u);
+          setNameDraft(u.name);
           await refreshTopics();
-          await refreshRooms(existing.id);
-          await refreshFriends(existing.id);
+          await refreshRooms(u.id);
+          await refreshFriends(u.id);
           if (initialInvite) {
             setView('join');
             setInviteInput(initialInvite);
@@ -165,9 +178,17 @@ export default function BrainAidApp({ initialInvite = '' }) {
     setBusy(true);
     setError('');
     try {
+      const topic = topics.find((t) => t.id === createForm.topicId) || null;
       const { room } = await api('/api/rooms', {
         method: 'POST',
-        body: JSON.stringify({ ...createForm, hostId: user.id }),
+        body: JSON.stringify({
+          ...createForm,
+          hostId: user.id,
+          hostName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          hostColor: user.color,
+          topic,
+        }),
       });
       setCreateForm((f) => ({ ...f, teamName: '' }));
       await refreshRooms(user.id);
@@ -186,7 +207,13 @@ export default function BrainAidApp({ initialInvite = '' }) {
     try {
       const { room } = await api('/api/rooms/join', {
         method: 'POST',
-        body: JSON.stringify({ inviteCode: inviteInput.trim(), userId: user.id }),
+        body: JSON.stringify({
+          inviteCode: inviteInput.trim(),
+          userId: user.id,
+          userName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          userColor: user.color,
+        }),
       });
       await refreshRooms(user.id);
       await loadRoom(room.id);
@@ -208,6 +235,9 @@ export default function BrainAidApp({ initialInvite = '' }) {
           title: topicForm.title,
           material: topicForm.material,
           ownerId: user.id,
+          ownerName: user.name,
+          deviceId: user.deviceId || getDeviceId(),
+          ownerColor: user.color,
         }),
       });
       await refreshTopics();
@@ -281,12 +311,15 @@ export default function BrainAidApp({ initialInvite = '' }) {
   }
 
   function topicById(id) {
-    return topics.find((t) => t.id === id);
+    return topics.find((t) => t.id === id) || (roomDetail?.topic?.id === id ? roomDetail.topic : null);
   }
 
   function startSession(mode) {
-    const topic = topicById(roomDetail.room.topicId);
-    if (!topic) return;
+    const topic = topicById(roomDetail.room.topicId) || roomDetail?.topic;
+    if (!topic) {
+      setError('Topic pack missing — recreate the room or pick a built-in topic.');
+      return;
+    }
     setSession({
       mode,
       topic,
@@ -674,7 +707,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 {topics.map((t) => (
                   <div key={t.id} className="card" style={{ marginBottom: 10 }}>
                     <span className={`pill ${t.builtin ? '' : 'pink'}`}>
-                      {t.builtin ? 'built-in' : 'custom'}
+                      {t.builtin ? 'built-in' : t.generatedBy === 'ai' || t.tags?.includes('ai') ? 'AI custom' : 'custom'}
                     </span>
                     <h3 style={{ marginTop: 8 }}>{t.title}</h3>
                     <p>{t.blurb}</p>
@@ -897,8 +930,12 @@ function RoomView({
   onOpenChat,
 }) {
   const { room, members } = detail;
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const inviteUrl = `${origin}/join/${room.inviteCode}`;
+  // NEXT_PUBLIC_APP_URL should be your public production host (not an SSO-locked preview).
+  const publicOrigin = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/$/, '');
+  const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
   const rankings = members
     .map((m) => {
@@ -937,6 +974,9 @@ function RoomView({
         >
           Copy link
         </button>
+        <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.85 }}>
+          Friends open the link and pick a Brain Aid name — no other account needed.
+        </p>
       </div>
 
       {myNudges.length > 0 && (
