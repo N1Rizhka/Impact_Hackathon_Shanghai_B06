@@ -14,10 +14,16 @@ const METHODS = [
 async function api(path, opts) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     ...opts,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 401 || data?.error?.code === '401' || data?.protection) {
+      throw new Error(
+        'This Vercel deployment is password/SSO protected. Disable Deployment Protection for Production, then redeploy.',
+      );
+    }
     throw new Error(data.error || data.message || `Request failed (${res.status})`);
   }
   return data;
