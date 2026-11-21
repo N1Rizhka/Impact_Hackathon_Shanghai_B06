@@ -930,8 +930,12 @@ function RoomView({
   onOpenChat,
 }) {
   const { room, members } = detail;
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const inviteUrl = `${origin}/join/${room.inviteCode}`;
+  // NEXT_PUBLIC_APP_URL should be your public production host (not an SSO-locked preview).
+  const publicOrigin = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/$/, '');
+  const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
   const rankings = members
     .map((m) => {
@@ -970,6 +974,9 @@ function RoomView({
         >
           Copy link
         </button>
+        <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.85 }}>
+          Friends open the link and pick a Brain Aid name — no other account needed.
+        </p>
       </div>
 
       {myNudges.length > 0 && (
