@@ -14,6 +14,7 @@ const METHODS = [
   { id: 'quiz', label: 'Checkpoint quiz', blurb: 'Free · on the team timeline', premium: false },
   { id: 'openQ', label: 'Open questions', blurb: 'Premium · AI reflection + feedback', premium: true },
   { id: 'explain', label: 'Explain-back', blurb: 'Premium · corrected personal review', premium: true },
+  { id: 'aiChat', label: 'AI tutor chat', blurb: 'Premium · ask only about your materials', premium: true },
 ];
 
 async function api(path, opts) {
@@ -424,6 +425,15 @@ export default function BrainAidApp({ initialInvite = '' }) {
       openIdx: 0,
       openText: '',
       openAnswers: [],
+      chatMessages: [
+        {
+          role: 'assistant',
+          content:
+            'Ask me anything about your uploaded materials for this topic. I only answer from that PDF/notes text.',
+        },
+      ],
+      chatInput: '',
+      chatBusy: false,
     });
     setView('session');
   }
@@ -474,6 +484,11 @@ export default function BrainAidApp({ initialInvite = '' }) {
     }
     if (session.mode === 'openQ') {
       payload.meta = { answers: session.openAnswers || [] };
+    }
+    if (session.mode === 'aiChat') {
+      payload.meta = {
+        turns: (session.chatMessages || []).filter((m) => m.role === 'user').length,
+      };
     }
     await api(`/api/rooms/${activeRoomId}`, {
       method: 'POST',
@@ -1049,6 +1064,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
               <ul className="premium-list">
                 <li>Open questions with keyword feedback</li>
                 <li>Explain-back with corrected review</li>
+                <li>AI tutor chat grounded only in your uploaded PDF/notes</li>
               </ul>
               <div className="actions">
                 <button type="button" className="btn ghost" onClick={() => setPremiumModal(false)}>
@@ -1164,7 +1180,7 @@ function RoomView({
   ).replace(/\/$/, '');
   const inviteUrl = `${publicOrigin}/join/${room.inviteCode}`;
 
-  const methodIds = [...new Set([...(room.methods || []), 'quiz', 'flashcards', 'errorHunt', 'openQ', 'explain'])];
+  const methodIds = [...new Set([...(room.methods || []), 'quiz', 'flashcards', 'errorHunt', 'openQ', 'explain', 'aiChat'])];
   const freeMethods = methodIds.filter((id) => {
     const m = METHODS.find((x) => x.id === id);
     return m && !m.premium;
@@ -1343,6 +1359,9 @@ function SessionView({ session, setSession, onExit, onFinish }) {
         )}
         {mode === 'openQ' && (
           <OpenQuestionSession session={session} setSession={setSession} onFinish={onFinish} />
+        )}
+        {mode === 'aiChat' && (
+          <AiChatSession session={session} setSession={setSession} onFinish={onFinish} />
         )}
         {mode === 'explain' && (
           <ExplainSession session={session} setSession={setSession} onFinish={onFinish} />
@@ -1534,6 +1553,78 @@ function QuizSession({ session, setSession, onFinish }) {
           </button>
         </div>
       )}
+    </>
+  );
+}
+
+
+function AiChatSession({ session, setSession, onFinish }) {
+  const { topic, chatMessages, chatInput, chatBusy } = session;
+
+  async function send() {
+    const text = (chatInput || '').trim();
+    if (!text || chatBusy) return;
+    const nextMessages = [...(chatMessages || []), { role: 'user', content: text }];
+    setSession({ ...session, chatMessages: nextMessages, chatInput: '', chatBusy: true });
+    try {
+      const data = await api('/api/topics/chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          topicId: topic.id,
+          topic,
+          messages: nextMessages.filter((m) => m.role === 'user' || m.role === 'assistant'),
+        }),
+      });
+      setSession((prev) => ({
+        ...prev,
+        chatMessages: [...nextMessages, { role: 'assistant', content: data.reply }],
+        chatBusy: false,
+      }));
+    } catch (e) {
+      setSession((prev) => ({
+        ...prev,
+        chatMessages: [
+          ...nextMessages,
+          { role: 'assistant', content: `Sorry — ${e.message || 'chat failed'}.` },
+        ],
+        chatBusy: false,
+      }));
+    }
+  }
+
+  return (
+    <>
+      <p className="eyebrow">Premium AI tutor</p>
+      <h3 style={{ marginTop: 0 }}>Ask about your materials</h3>
+      <p className="muted-line" style={{ marginBottom: 10 }}>
+        Grounded only in this topic&apos;s uploaded PDF/notes — not the open web.
+      </p>
+      <div className="ai-chat">
+        {(chatMessages || []).map((m, i) => (
+          <div key={i} className={`ai-bubble ${m.role}`}>
+            <strong>{m.role === 'user' ? 'You' : 'Tutor'}</strong>
+            <p>{m.content}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <input
+          style={{ flex: 1 }}
+          value={chatInput}
+          disabled={chatBusy}
+          onChange={(e) => setSession({ ...session, chatInput: e.target.value })}
+          placeholder="e.g. What does the PDF say about…?"
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+        />
+        <button type="button" className="btn primary sm" disabled={chatBusy || !chatInput?.trim()} onClick={send}>
+          {chatBusy ? '…' : 'Ask'}
+        </button>
+      </div>
+      <div className="actions">
+        <button type="button" className="btn primary" onClick={onFinish}>
+          Finish chat session
+        </button>
+      </div>
     </>
   );
 }
