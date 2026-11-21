@@ -12,8 +12,8 @@
   --cyan: #00e5ff;
   --stroke: rgba(7, 7, 7, 0.12);
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
-  --font-display: 'Syne', system-ui, sans-serif;
-  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-display: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  --font-body: 'Source Sans 3', 'Source Sans Pro', 'Segoe UI', sans-serif;
   --radius: 18px;
   --sidebar: 240px;
 }
@@ -23,12 +23,18 @@ html, body { margin: 0; min-height: 100%; }
 body {
   color: var(--ink);
   font-family: var(--font-body);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
   background:
     radial-gradient(900px 500px at 0% -10%, rgba(255, 45, 85, 0.18), transparent 55%),
     radial-gradient(800px 480px at 100% 0%, rgba(45, 108, 255, 0.16), transparent 50%),
     radial-gradient(700px 420px at 80% 100%, rgba(0, 200, 83, 0.14), transparent 45%),
     #ffffff;
   -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
@@ -237,7 +243,17 @@ a { color: inherit; }
   font-size: clamp(2.6rem, 8vw, 4rem);
   letter-spacing: -0.05em;
 }
-.welcome-card .lede { color: var(--muted); line-height: 1.5; margin: 0 0 18px; }
+.welcome-card .lede { color: var(--muted); line-height: 1.55; margin: 0 0 18px; }
+.auth-card { max-width: 440px; width: 100%; }
+.auth-tabs { margin-bottom: 14px; }
+.audience-card {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: #f3f8ff;
+}
+.audience-card p { margin: 4px 0 0; line-height: 1.45; }
 
 .mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .mode-btn {
