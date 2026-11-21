@@ -2,12 +2,17 @@
 
 ## Brain Aid demo
 
-Interactive concept demo for the **Education & AI** track:
+Open the interactive demo:
+
+```bash
+open brain-aid-demo/index.html
+```
+
+Or from that folder:
 
 ```bash
 cd brain-aid-demo
-npm install
-npm run dev
+npx --yes serve .
 ```
 
-See [`brain-aid-demo/README.md`](brain-aid-demo/README.md) for the walkthrough.
+See [`brain-aid-demo/README.md`](brain-aid-demo/README.md).

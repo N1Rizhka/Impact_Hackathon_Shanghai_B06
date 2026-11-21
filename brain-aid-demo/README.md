@@ -1,22 +1,19 @@
 # Brain Aid — interactive concept demo
 
-A fun, clickable prototype for the **Education & AI** track: lifelong learning rooms with friends, a shared commitment plan, confidence-based teaching methods, and an “error hunt” AI mode.
-
-## Run locally
+Open **`index.html`** in a browser. That’s the whole demo — no build step required.
 
 ```bash
-npm install
-npm run dev
+# optional local server
+npx --yes serve .
+# or just double-click index.html
 ```
-
-Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## Demo flow
 
-1. **Enter the room** — meet your study crew  
-2. **Build the plan** — period, methods, quiz frequency  
-3. **Set confidence** — AI picks flashcards vs error hunt  
-4. **Learn** — flip cards or catch planted mistakes  
-5. **Exit check + rankings** — prove understanding, see commitment board  
+1. Enter the room  
+2. Build the plan (period, methods, quiz frequency)  
+3. Set confidence → AI picks flashcards or error hunt  
+4. Learn + exit check  
+5. Commitment rankings  
 
-Sample data is labeled in the UI. This is a front-end concept demo, not a production product.
+Sample data is labeled in the UI.

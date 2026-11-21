@@ -1,16 +1,846 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brain Aid — Learn together, for life</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brain Aid — Learn together, for life</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='16' width='52' height='42' rx='10' fill='%23114B3A'/%3E%3Crect x='12' y='28' width='40' height='24' rx='6' fill='%23F4FAF7'/%3E%3Ccircle cx='48' cy='24' r='10' fill='%23E06B4A'/%3E%3Cpath d='M48 18.2v11.6M42.2 24h11.6' stroke='%23FFF7F4' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0e1f1a;
+      --pine: #114b3a;
+      --pine-deep: #0a3227;
+      --foam: #e8f3ee;
+      --paper: #f4faf7;
+      --amber: #e8a838;
+      --coral: #e06b4a;
+      --sky: #7eb8c9;
+      --muted: #5a736a;
+      --stroke: rgba(17, 75, 58, 0.14);
+      --radius: 22px;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Manrope', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-body);
+      background:
+        radial-gradient(1200px 700px at 12% -10%, rgba(126, 184, 201, 0.45), transparent 55%),
+        radial-gradient(900px 600px at 90% 8%, rgba(232, 168, 56, 0.28), transparent 50%),
+        radial-gradient(800px 500px at 50% 100%, rgba(17, 75, 58, 0.12), transparent 45%),
+        linear-gradient(165deg, #eef7f3 0%, #f7fbf9 42%, #e6f0eb 100%);
+      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .app {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      background: transparent;
+      color: var(--pine);
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      padding: 0;
+    }
+
+    .brand svg { display: block; flex-shrink: 0; }
+
+    .progress { display: flex; gap: 7px; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 99px;
+      background: rgba(17, 75, 58, 0.18);
+      transition: 0.25s ease;
+    }
+    .dot.done { background: var(--pine); }
+    .dot.now { width: 22px; background: var(--amber); }
+
+    .stage { flex: 1; display: flex; }
+
+    .panel {
+      width: 100%;
+      background: rgba(244, 250, 247, 0.78);
+      border: 1px solid var(--stroke);
+      border-radius: calc(var(--radius) + 6px);
+      padding: clamp(22px, 4vw, 40px);
+      backdrop-filter: blur(10px);
+      animation: rise 0.4s ease both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: clamp(24px, 5vw, 48px);
+      align-items: center;
+      min-height: min(72vh, 640px);
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(244, 250, 247, 0.92), rgba(232, 243, 238, 0.75)),
+        radial-gradient(600px 320px at 85% 20%, rgba(232, 168, 56, 0.2), transparent 60%);
+    }
+
+    .hero-logo {
+      display: block;
+      margin-bottom: 14px;
+      animation: bob 3.6s ease-in-out infinite;
+      filter: drop-shadow(0 10px 24px rgba(17, 75, 58, 0.2));
+    }
+
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .hero h1, .panel h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--pine-deep);
+      line-height: 1.05;
+    }
+    .hero h1 { font-size: clamp(3rem, 8vw, 5.4rem); }
+    .panel h2 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); }
+
+    .lede, .sub { color: var(--muted); line-height: 1.55; }
+    .lede { max-width: 34rem; font-size: 1.08rem; margin: 16px 0 28px; }
+    .sub { margin: 8px 0 0; max-width: 36rem; }
+
+    .cta-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px;
+    }
+    .hint { color: var(--muted); font-size: 0.92rem; }
+
+    .btn {
+      border: 0; border-radius: 999px; padding: 12px 20px; font-weight: 700;
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.primary {
+      background: var(--pine); color: #f4faf7;
+      box-shadow: 0 10px 28px rgba(17, 75, 58, 0.22);
+    }
+    .btn.primary:hover:not(:disabled) { background: var(--pine-deep); }
+    .btn.ghost {
+      background: transparent; color: var(--pine); border: 1px solid var(--stroke);
+    }
+
+    .hero-visual {
+      position: relative; height: 320px; display: grid; place-items: center;
+    }
+    .orbit {
+      position: absolute; width: 260px; height: 260px; border-radius: 50%;
+      border: 1px dashed rgba(17, 75, 58, 0.25);
+      animation: spin 48s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .orbit-node {
+      position: absolute; top: 50%; left: 50%; margin: -26px 0 0 -26px;
+    }
+    .orbit-core {
+      position: relative; z-index: 2; width: 132px; height: 132px;
+      border-radius: 50%; background: var(--pine); color: var(--foam);
+      display: grid; place-content: center; text-align: center; gap: 4px;
+      box-shadow: 0 24px 60px rgba(14, 31, 26, 0.12);
+    }
+    .orbit-core strong { font-family: var(--font-display); font-size: 1.05rem; }
+    .orbit-core span { font-size: 0.78rem; opacity: 0.75; }
+
+    .avatar {
+      border-radius: 50%; color: #fff; display: grid; place-items: center;
+      font-weight: 800; font-family: var(--font-display);
+      box-shadow: 0 0 0 3px rgba(244, 250, 247, 0.9);
+    }
+
+    .panel-head {
+      display: flex; justify-content: space-between; gap: 16px;
+      align-items: flex-start; margin-bottom: 28px;
+    }
+    .pill {
+      flex-shrink: 0; border-radius: 999px; padding: 8px 12px;
+      font-size: 0.78rem; font-weight: 700;
+      background: rgba(232, 168, 56, 0.22); color: var(--pine-deep);
+    }
+    .pill.win { background: rgba(17, 75, 58, 0.12); color: var(--pine); }
+
+    .member-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px; margin-bottom: 28px;
+    }
+    .member {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-radius: 18px;
+      background: rgba(255, 255, 255, 0.55); border: 1px solid var(--stroke);
+    }
+    .member strong { display: block; }
+    .member span { color: var(--muted); font-size: 0.85rem; }
+
+    .actions {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      justify-content: flex-end; margin-top: 8px;
+    }
+
+    .plan-block { margin-bottom: 22px; }
+    .plan-block h3, .exit h3 {
+      margin: 0 0 10px; font-family: var(--font-display);
+      font-size: 1.05rem; color: var(--pine-deep);
+    }
+
+    .choice-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .choice {
+      flex: 1 1 140px; text-align: left; border: 1px solid var(--stroke);
+      background: rgba(255, 255, 255, 0.55); border-radius: 16px;
+      padding: 14px 16px; transition: 0.18s ease; min-width: 0;
+    }
+    .choice strong { display: block; color: var(--ink); margin-bottom: 2px; }
+    .choice span { color: var(--muted); font-size: 0.82rem; }
+    .choice:hover { border-color: rgba(17, 75, 58, 0.35); }
+    .choice.on { background: var(--pine); border-color: var(--pine); color: #f4faf7; }
+    .choice.on strong, .choice.on span { color: inherit; }
+    .choice.bad { background: rgba(224, 107, 74, 0.15); border-color: var(--coral); }
+
+    .confidence { max-width: 560px; }
+    .confidence input[type='range'] { width: 100%; accent-color: var(--pine); }
+    .conf-labels {
+      display: flex; justify-content: space-between; color: var(--muted);
+      font-size: 0.85rem; margin: 6px 0 22px;
+    }
+    .method-preview {
+      padding: 18px 20px; border-radius: 18px;
+      background: linear-gradient(135deg, rgba(17, 75, 58, 0.95), rgba(10, 50, 39, 0.98));
+      color: var(--foam); margin-bottom: 24px;
+    }
+    .method-preview .eyebrow { color: rgba(244, 250, 247, 0.7); }
+    .method-preview strong {
+      display: block; font-family: var(--font-display);
+      font-size: 1.25rem; margin: 4px 0 8px;
+    }
+    .method-preview p { margin: 0; opacity: 0.8; font-size: 0.92rem; }
+
+    .flash-wrap { display: grid; gap: 16px; }
+    .flash {
+      position: relative; width: min(100%, 440px); height: 240px;
+      border: 0; background: transparent; perspective: 1000px; margin: 0 auto;
+    }
+    .flash-face {
+      position: absolute; inset: 0; border-radius: 22px; padding: 24px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      backface-visibility: hidden; transition: transform 0.5s ease;
+      border: 1px solid var(--stroke);
+    }
+    .flash-face.front { background: #fff; transform: rotateY(0deg); }
+    .flash-face.back { background: var(--pine); color: var(--foam); transform: rotateY(180deg); }
+    .flash.is-flipped .front { transform: rotateY(180deg); }
+    .flash.is-flipped .back { transform: rotateY(360deg); }
+    .flash-face span, .flash-face em { font-size: 0.82rem; opacity: 0.7; }
+    .flash-face p {
+      font-family: var(--font-display); font-size: 1.35rem; line-height: 1.25; margin: 0;
+    }
+    .flash-nav { display: flex; justify-content: center; gap: 10px; }
+
+    .hunt .disclaimer { color: var(--muted); margin: 0 0 14px; }
+    .passage {
+      background: #fff; border: 1px solid var(--stroke); border-radius: 18px;
+      padding: 22px; line-height: 1.75; font-size: 1.08rem;
+    }
+    .trap {
+      display: inline; border: 0; padding: 0 2px; margin: 0;
+      background: rgba(232, 168, 56, 0.28); border-bottom: 2px dashed var(--amber);
+      border-radius: 4px; color: inherit; font: inherit; cursor: pointer;
+    }
+    .trap.caught {
+      background: rgba(17, 75, 58, 0.12); border-bottom-color: var(--pine);
+    }
+    .trap.caught s { opacity: 0.55; margin-right: 4px; }
+    .trap.caught b { color: var(--pine); font-weight: 800; }
+
+    .hunt-status {
+      display: flex; align-items: center; gap: 14px;
+      margin: 16px 0 8px; color: var(--muted); font-size: 0.92rem;
+    }
+    .meter {
+      flex: 1; height: 8px; border-radius: 99px;
+      background: rgba(17, 75, 58, 0.12); overflow: hidden;
+    }
+    .meter > div {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--amber), var(--pine));
+      transition: width 0.3s ease;
+    }
+
+    .exit {
+      margin-top: 18px; padding: 18px; border-radius: 18px;
+      background: rgba(126, 184, 201, 0.16);
+      border: 1px solid rgba(126, 184, 201, 0.35);
+    }
+    .exit p { margin: 0 0 12px; color: var(--muted); }
+    .exit-opts {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px; margin-bottom: 10px;
+    }
+    .exit-result {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: 10px;
+    }
+    .exit-result p { margin: 0; color: var(--pine-deep); font-weight: 600; }
+
+    .rank-list {
+      list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 10px;
+    }
+    .rank-list li {
+      display: grid; grid-template-columns: 42px 42px 1fr auto;
+      align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+      background: rgba(255, 255, 255, 0.6); border: 1px solid var(--stroke);
+    }
+    .rank-list li.you {
+      background: rgba(232, 168, 56, 0.18); border-color: rgba(232, 168, 56, 0.45);
+    }
+    .place { font-family: var(--font-display); font-weight: 800; color: var(--pine); }
+    .rank-meta strong { display: block; }
+    .rank-meta span { color: var(--muted); font-size: 0.85rem; }
+    .score { text-align: right; }
+    .score b {
+      display: block; font-family: var(--font-display);
+      font-size: 1.25rem; color: var(--pine-deep);
+    }
+    .score small {
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.08em; font-size: 0.68rem;
+    }
+
+    .outro {
+      padding: 16px 18px; border-radius: 16px;
+      background: rgba(17, 75, 58, 0.08); margin-bottom: 18px;
+    }
+    .outro p { margin: 0; color: var(--pine-deep); line-height: 1.5; }
+
+    .foot {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      gap: 8px; margin-top: 16px; color: var(--muted); font-size: 0.8rem;
+    }
+
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-visual { order: -1; height: 250px; }
+      .orbit { width: 220px; height: 220px; }
+      .member-grid { grid-template-columns: 1fr; }
+      .exit-opts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button type="button" class="brand" id="brandBtn" aria-label="Brain Aid home">
+        <svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="6" y="16" width="52" height="42" rx="10" fill="#114B3A"/>
+          <rect x="22" y="8" width="20" height="12" rx="5" fill="#0A3227"/>
+          <rect x="27" y="5" width="10" height="7" rx="3.5" fill="#E8A838"/>
+          <rect x="28" y="20" width="8" height="5" rx="1.5" fill="#E8A838"/>
+          <rect x="12" y="28" width="40" height="24" rx="6" fill="#F4FAF7"/>
+          <path d="M24.8 33.2c-3.6.2-6.3 3-6.3 6.4 0 1.5.5 2.8 1.5 3.8-.5.6-.8 1.4-.8 2.2 0 2 1.6 3.6 3.6 3.6h.6c.5 1.5 1.9 2.6 3.6 2.6 1.2 0 2.2-.5 2.9-1.4.6.9 1.7 1.4 2.9 1.4 1.7 0 3.1-1.1 3.6-2.6h.6c2 0 3.6-1.6 3.6-3.6 0-.8-.3-1.6-.8-2.2 1-1 1.5-2.3 1.5-3.8 0-3.4-2.7-6.2-6.3-6.4-1.4-.1-2.7.4-3.8 1.2-1.1-.8-2.4-1.3-3.8-1.2z" fill="#114B3A"/>
+          <path d="M32 36.2c-.2 2.4-.3 4.6-.3 7M27.6 38c1.5.9 3.1 1.3 4.7 1.5M36.4 38c-1.5.9-3.1 1.3-4.7 1.5" stroke="#7EB8C9" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="48" cy="24" r="10" fill="#E06B4A"/>
+          <path d="M48 18.2v11.6M42.2 24h11.6" stroke="#FFF7F4" stroke-width="3.2" stroke-linecap="round"/>
+        </svg>
+        Brain Aid
+      </button>
+      <div class="progress" id="progress" aria-hidden="true"></div>
+    </header>
+
+    <main class="stage" id="stage"></main>
+
+    <footer class="foot">
+      <span>Impact Hackathon · Education &amp; AI concept demo</span>
+      <span>Sample data labeled · not a live product</span>
+    </footer>
+  </div>
+
+  <script>
+    const STEPS = ['home', 'room', 'plan', 'confidence', 'learn', 'rank'];
+    const MEMBERS = [
+      { id: 'you', name: 'You', color: '#114B3A', vibe: 'host' },
+      { id: 'mei', name: 'Mei', color: '#E06B4A', vibe: 'streak queen' },
+      { id: 'leo', name: 'Leo', color: '#7EB8C9', vibe: 'night owl' },
+      { id: 'aria', name: 'Aria', color: '#E8A838', vibe: 'quiz gremlin' },
+    ];
+    const METHODS = [
+      { id: 'flashcards', label: 'Flashcards', blurb: 'Fast recall drills' },
+      { id: 'errorHunt', label: 'Error hunt', blurb: 'Catch AI mistakes' },
+      { id: 'quiz', label: 'Live quizzes', blurb: 'Check together' },
+      { id: 'explain', label: 'Explain-back', blurb: 'Teach the room' },
+    ];
+    const PERIODS = [
+      { id: 7, label: '7 days', sub: 'sprint' },
+      { id: 14, label: '14 days', sub: 'habit kick' },
+      { id: 30, label: '30 days', sub: 'deep dive' },
+    ];
+    const QUIZ_OPTS = [
+      { id: 1, label: 'Every day' },
+      { id: 2, label: 'Every 2 days' },
+      { id: 3, label: 'Twice a week' },
+    ];
+    const FLASHCARDS = [
+      { front: 'What does photosynthesis need as inputs?', back: 'Light, water, and carbon dioxide (CO₂).' },
+      { front: 'Where do the light-dependent reactions happen?', back: 'In the thylakoid membranes of the chloroplast.' },
+      { front: 'What sugar is usually produced?', back: 'Glucose (C₆H₁₂O₆), with oxygen released as a byproduct.' },
+    ];
+    const ERRORS = [
+      { id: 'e1', bad: 'mitochondria', fix: 'chloroplasts' },
+      { id: 'e2', bad: 'nitrogen gas', fix: 'carbon dioxide (CO₂)' },
+      { id: 'e3', bad: 'protein', fix: 'glucose' },
+      { id: 'e4', bad: 'hemoglobin', fix: 'chlorophyll' },
+    ];
+    const EXIT_Q = {
+      prompt: 'Quick check: which organelle runs photosynthesis?',
+      options: ['Mitochondria', 'Chloroplast', 'Nucleus', 'Ribosome'],
+      answer: 1,
+    };
+
+    const state = {
+      step: 'home',
+      period: 14,
+      methods: ['flashcards', 'errorHunt', 'quiz'],
+      quizEvery: 2,
+      confidence: 2,
+      cardIdx: 0,
+      flipped: false,
+      found: [],
+      exitPick: null,
+      sessionDone: false,
+    };
+
+    const stage = document.getElementById('stage');
+    const progress = document.getElementById('progress');
+
+    function avatar(m, size = 44) {
+      return `<div class="avatar" style="width:${size}px;height:${size}px;background:${m.color};font-size:${size * 0.36}px" title="${m.name}">${m.name[0]}</div>`;
+    }
+
+    function logo(size = 88, cls = '') {
+      return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="6" y="16" width="52" height="42" rx="10" fill="#114B3A"/>
+        <rect x="22" y="8" width="20" height="12" rx="5" fill="#0A3227"/>
+        <rect x="27" y="5" width="10" height="7" rx="3.5" fill="#E8A838"/>
+        <rect x="28" y="20" width="8" height="5" rx="1.5" fill="#E8A838"/>
+        <rect x="12" y="28" width="40" height="24" rx="6" fill="#F4FAF7"/>
+        <path d="M24.8 33.2c-3.6.2-6.3 3-6.3 6.4 0 1.5.5 2.8 1.5 3.8-.5.6-.8 1.4-.8 2.2 0 2 1.6 3.6 3.6 3.6h.6c.5 1.5 1.9 2.6 3.6 2.6 1.2 0 2.2-.5 2.9-1.4.6.9 1.7 1.4 2.9 1.4 1.7 0 3.1-1.1 3.6-2.6h.6c2 0 3.6-1.6 3.6-3.6 0-.8-.3-1.6-.8-2.2 1-1 1.5-2.3 1.5-3.8 0-3.4-2.7-6.2-6.3-6.4-1.4-.1-2.7.4-3.8 1.2-1.1-.8-2.4-1.3-3.8-1.2z" fill="#114B3A"/>
+        <path d="M32 36.2c-.2 2.4-.3 4.6-.3 7M27.6 38c1.5.9 3.1 1.3 4.7 1.5M36.4 38c-1.5.9-3.1 1.3-4.7 1.5" stroke="#7EB8C9" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="48" cy="24" r="10" fill="#E06B4A"/>
+        <path d="M48 18.2v11.6M42.2 24h11.6" stroke="#FFF7F4" stroke-width="3.2" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    function chosenMethod() {
+      if (state.confidence <= 2 && state.methods.includes('flashcards')) return 'flashcards';
+      if (state.confidence >= 4 && state.methods.includes('errorHunt')) return 'errorHunt';
+      if (state.methods.includes('errorHunt')) return 'errorHunt';
+      return 'flashcards';
+    }
+
+    function methodLabel(m) {
+      if (m === 'flashcards') return 'Flashcards — rebuild the foundation';
+      return 'Error hunt — catch planted mistakes';
+    }
+
+    function go(step) {
+      state.step = step;
+      render();
+    }
+
+    function resetDemo() {
+      Object.assign(state, {
+        step: 'home', period: 14, methods: ['flashcards', 'errorHunt', 'quiz'],
+        quizEvery: 2, confidence: 2, cardIdx: 0, flipped: false,
+        found: [], exitPick: null, sessionDone: false,
+      });
+      render();
+    }
+
+    function renderProgress() {
+      const idx = STEPS.indexOf(state.step);
+      if (idx <= 0) { progress.innerHTML = ''; return; }
+      progress.innerHTML = STEPS.slice(1).map((s, i) => {
+        const cls = ['dot', i < idx ? 'done' : '', i === idx - 1 ? 'now' : ''].filter(Boolean).join(' ');
+        return `<span class="${cls}"></span>`;
+      }).join('');
+    }
+
+    function exitCheckHtml() {
+      if (state.exitPick === null) {
+        return `<div class="exit">
+          <h3>Follow-up check</h3>
+          <p>${EXIT_Q.prompt}</p>
+          <div class="exit-opts">
+            ${EXIT_Q.options.map((opt, i) => `<button type="button" class="choice" data-exit="${i}"><strong>${opt}</strong></button>`).join('')}
+          </div>
+        </div>`;
+      }
+      const correct = state.exitPick === EXIT_Q.answer;
+      return `<div class="exit">
+        <h3>Follow-up check</h3>
+        <p>${EXIT_Q.prompt}</p>
+        <div class="exit-opts">
+          ${EXIT_Q.options.map((opt, i) => {
+            let cls = 'choice';
+            if (state.exitPick === i) cls += correct ? ' on' : ' bad';
+            return `<button type="button" class="${cls}" disabled><strong>${opt}</strong></button>`;
+          }).join('')}
+        </div>
+        <div class="exit-result">
+          <p>${correct ? 'Nice — understanding checked. Onto the room board.' : 'Not quite. Chloroplasts run photosynthesis. Try again next round.'}</p>
+          <button type="button" class="btn primary" data-action="rank">See rankings</button>
+        </div>
+      </div>`;
+    }
+
+    function renderHome() {
+      return `<section class="panel hero">
+        <div class="hero-copy">
+          ${logo(88, 'hero-logo')}
+          <p class="eyebrow">Lifelong learning, with your people</p>
+          <h1>Brain Aid</h1>
+          <p class="lede">Open a room. Set a commitment. Learn with AI that adapts to your confidence — including modes that make you catch mistakes, not just collect answers.</p>
+          <div class="cta-row">
+            <button type="button" class="btn primary" data-action="room">Enter the demo room</button>
+            <span class="hint">2-minute interactive walkthrough</span>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="orbit">
+            ${MEMBERS.map((m, i) => `<div class="orbit-node" style="transform:rotate(${i * 90}deg) translate(118px) rotate(-${i * 90}deg)">${avatar(m, 52)}</div>`).join('')}
+          </div>
+          <div class="orbit-core"><strong>Photosynthesis</strong><span>14-day room</span></div>
+        </div>
+      </section>`;
+    }
+
+    function renderRoom() {
+      return `<section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Your room</p>
+            <h2>Photosynthesis basics</h2>
+            <p class="sub">Friends + matched learners. One shared commitment.</p>
+          </div>
+          <div class="pill">Live demo data</div>
+        </div>
+        <div class="member-grid">
+          ${MEMBERS.map(m => `<div class="member">${avatar(m, 48)}<div><strong>${m.name}</strong><span>${m.vibe}</span></div></div>`).join('')}
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" data-action="home">Back</button>
+          <button type="button" class="btn primary" data-action="plan">Build the plan</button>
+        </div>
+      </section>`;
+    }
+
+    function renderPlan() {
+      return `<section class="panel">
+        <div class="panel-head"><div>
+          <p class="eyebrow">Commitment plan</p>
+          <h2>How will this room learn?</h2>
+          <p class="sub">Period, methods, and quiz rhythm — decided together.</p>
+        </div></div>
+        <div class="plan-block">
+          <h3>Time window</h3>
+          <div class="choice-row">
+            ${PERIODS.map(p => `<button type="button" class="choice ${state.period === p.id ? 'on' : ''}" data-period="${p.id}"><strong>${p.label}</strong><span>${p.sub}</span></button>`).join('')}
+          </div>
+        </div>
+        <div class="plan-block">
+          <h3>Learning methods</h3>
+          <div class="choice-row">
+            ${METHODS.map(m => `<button type="button" class="choice ${state.methods.includes(m.id) ? 'on' : ''}" data-method="${m.id}"><strong>${m.label}</strong><span>${m.blurb}</span></button>`).join('')}
+          </div>
+        </div>
+        <div class="plan-block">
+          <h3>Quiz frequency</h3>
+          <div class="choice-row">
+            ${QUIZ_OPTS.map(q => `<button type="button" class="choice ${state.quizEvery === q.id ? 'on' : ''}" data-quiz="${q.id}"><strong>${q.label}</strong></button>`).join('')}
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" data-action="room">Back</button>
+          <button type="button" class="btn primary" data-action="confidence">Lock plan · start session</button>
+        </div>
+      </section>`;
+    }
+
+    function renderConfidence() {
+      const method = chosenMethod();
+      const quizLabel = QUIZ_OPTS.find(q => q.id === state.quizEvery)?.label.toLowerCase();
+      return `<section class="panel">
+        <div class="panel-head"><div>
+          <p class="eyebrow">Personalization</p>
+          <h2>How confident do you feel today?</h2>
+          <p class="sub">Brain Aid picks a teaching method from your confidence + the room plan.</p>
+        </div></div>
+        <div class="confidence">
+          <input type="range" min="1" max="5" value="${state.confidence}" id="confRange" aria-label="Confidence level" />
+          <div class="conf-labels"><span>Shaky</span><span>Okay</span><span>Solid</span></div>
+          <div class="method-preview">
+            <span class="eyebrow">AI will start with</span>
+            <strong>${methodLabel(method)}</strong>
+            <p>Room plan: ${state.period} days · quizzes ${quizLabel} · ${state.methods.length} methods unlocked</p>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" data-action="plan">Back</button>
+          <button type="button" class="btn primary" data-action="learn">Begin learning</button>
+        </div>
+      </section>`;
+    }
+
+    function renderLearn() {
+      const method = chosenMethod();
+      if (method === 'flashcards') {
+        const card = FLASHCARDS[state.cardIdx];
+        const last = state.cardIdx === FLASHCARDS.length - 1;
+        return `<section class="panel">
+          <div class="panel-head"><div>
+            <p class="eyebrow">Session · Flashcards</p>
+            <h2>Photosynthesis basics</h2>
+            <p class="sub">Flip each card, then take the shared exit check.</p>
+          </div></div>
+          <div class="flash-wrap">
+            <button type="button" class="flash ${state.flipped ? 'is-flipped' : ''}" id="flashCard">
+              <div class="flash-face front"><span>Card ${state.cardIdx + 1}/${FLASHCARDS.length}</span><p>${card.front}</p><em>Tap to flip</em></div>
+              <div class="flash-face back"><span>Answer</span><p>${card.back}</p></div>
+            </button>
+            <div class="flash-nav">
+              <button type="button" class="btn ghost" data-card="prev" ${state.cardIdx === 0 ? 'disabled' : ''}>Prev</button>
+              ${last
+                ? `<button type="button" class="btn primary" data-card="stay">Ready for exit check</button>`
+                : `<button type="button" class="btn primary" data-card="next">Next card</button>`}
+            </div>
+            ${last ? exitCheckHtml() : ''}
+          </div>
+          <div class="actions"><button type="button" class="btn ghost" data-action="confidence">Back</button></div>
+        </section>`;
+      }
+
+      const caught = state.found.length;
+      const allFound = caught === ERRORS.length;
+      const passage = `Photosynthesis happens in the ${trap('e1')} of plant cells. Plants take in ${trap('e2')} and water, then use sunlight to make sugar. The main sugar product is ${trap('e3')}, and they release oxygen. The green pigment that captures light is ${trap('e4')}.`;
+
+      return `<section class="panel">
+        <div class="panel-head"><div>
+          <p class="eyebrow">Session · Error hunt</p>
+          <h2>Photosynthesis basics</h2>
+          <p class="sub">Tap every incorrect claim. Correct answers appear after you catch them.</p>
+        </div></div>
+        <div class="hunt">
+          <p class="disclaimer">This explanation was written to include mistakes on purpose. Tap every error you spot.</p>
+          <div class="passage">${passage}</div>
+          <div class="hunt-status">
+            <div class="meter"><div style="width:${(caught / ERRORS.length) * 100}%"></div></div>
+            <span>${caught}/${ERRORS.length} mistakes caught</span>
+          </div>
+          ${allFound ? exitCheckHtml() : ''}
+        </div>
+        <div class="actions"><button type="button" class="btn ghost" data-action="confidence">Back</button></div>
+      </section>`;
+    }
+
+    function trap(id) {
+      const err = ERRORS.find(e => e.id === id);
+      const caught = state.found.includes(id);
+      if (caught) {
+        return `<button type="button" class="trap caught" data-trap="${id}"><s>${err.bad}</s> <b>${err.fix}</b></button>`;
+      }
+      return `<button type="button" class="trap" data-trap="${id}">${err.bad}</button>`;
+    }
+
+    function renderRank() {
+      const rankings = [
+        { id: 'mei', score: 92, streak: 9, label: 'Most committed' },
+        { id: 'you', score: state.sessionDone ? 88 : 71, streak: state.sessionDone ? 6 : 5, label: state.sessionDone ? 'Rising fast' : 'Building' },
+        { id: 'aria', score: 84, streak: 4, label: 'Quiz beast' },
+        { id: 'leo', score: 76, streak: 3, label: 'Steady' },
+      ].map(r => ({ ...r, member: MEMBERS.find(m => m.id === r.id) }))
+       .sort((a, b) => b.score - a.score);
+
+      return `<section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Room pulse</p>
+            <h2>Commitment board</h2>
+            <p class="sub">Rankings reward showing up and proving understanding — not just points from AI answers.</p>
+          </div>
+          ${state.sessionDone ? '<div class="pill win">You completed today\'s proof</div>' : ''}
+        </div>
+        <ol class="rank-list">
+          ${rankings.map((r, i) => `<li class="${r.id === 'you' ? 'you' : ''}">
+            <span class="place">#${i + 1}</span>
+            ${avatar(r.member, 42)}
+            <div class="rank-meta"><strong>${r.member.name}</strong><span>${r.label} · ${r.streak}-day streak</span></div>
+            <div class="score"><b>${r.score}</b><small>commit</small></div>
+          </li>`).join('')}
+        </ol>
+        <div class="outro">
+          <p>That's the Brain Aid loop: <strong>room → plan → confidence → learn → prove → rank</strong>. Built for lifelong learning with people who stay.</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" data-action="confidence">Try another confidence</button>
+          <button type="button" class="btn primary" data-action="reset">Replay demo</button>
+        </div>
+      </section>`;
+    }
+
+    function render() {
+      renderProgress();
+      const views = {
+        home: renderHome,
+        room: renderRoom,
+        plan: renderPlan,
+        confidence: renderConfidence,
+        learn: renderLearn,
+        rank: renderRank,
+      };
+      stage.innerHTML = views[state.step]();
+      bind();
+    }
+
+    function bind() {
+      stage.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const a = btn.getAttribute('data-action');
+          if (a === 'reset') return resetDemo();
+          if (a === 'learn') {
+            state.found = [];
+            state.cardIdx = 0;
+            state.flipped = false;
+            state.exitPick = null;
+          }
+          if (a === 'rank') {
+            state.sessionDone = true;
+          }
+          go(a);
+        });
+      });
+
+      stage.querySelectorAll('[data-period]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.period = Number(btn.getAttribute('data-period'));
+          render();
+        });
+      });
+
+      stage.querySelectorAll('[data-method]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-method');
+          if (state.methods.includes(id)) {
+            if (state.methods.length === 1) return;
+            state.methods = state.methods.filter(m => m !== id);
+          } else {
+            state.methods = [...state.methods, id];
+          }
+          render();
+        });
+      });
+
+      stage.querySelectorAll('[data-quiz]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.quizEvery = Number(btn.getAttribute('data-quiz'));
+          render();
+        });
+      });
+
+      const range = stage.querySelector('#confRange');
+      if (range) {
+        range.addEventListener('input', () => {
+          state.confidence = Number(range.value);
+          const preview = stage.querySelector('.method-preview strong');
+          if (preview) preview.textContent = methodLabel(chosenMethod());
+        });
+      }
+
+      const flash = stage.querySelector('#flashCard');
+      if (flash) {
+        flash.addEventListener('click', () => {
+          state.flipped = !state.flipped;
+          flash.classList.toggle('is-flipped', state.flipped);
+        });
+      }
+
+      stage.querySelectorAll('[data-card]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dir = btn.getAttribute('data-card');
+          if (dir === 'prev') state.cardIdx = Math.max(0, state.cardIdx - 1);
+          if (dir === 'next') state.cardIdx = Math.min(FLASHCARDS.length - 1, state.cardIdx + 1);
+          state.flipped = false;
+          render();
+        });
+      });
+
+      stage.querySelectorAll('[data-trap]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-trap');
+          if (state.found.includes(id)) {
+            state.found = state.found.filter(x => x !== id);
+          } else {
+            state.found = [...state.found, id];
+          }
+          render();
+        });
+      });
+
+      stage.querySelectorAll('[data-exit]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.exitPick = Number(btn.getAttribute('data-exit'));
+          render();
+        });
+      });
+    }
+
+    document.getElementById('brandBtn').addEventListener('click', resetDemo);
+    render();
+  </script>
+</body>
 </html>
