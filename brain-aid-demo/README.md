@@ -1,4 +1,4 @@
-# StudyCircle — interactive concept demo
+# Brain Aid — interactive concept demo
 
 A fun, clickable prototype for the **Education & AI** track: lifelong learning rooms with friends, a shared commitment plan, confidence-based teaching methods, and an “error hunt” AI mode.
 

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Brain Aid logo">
+  <!-- First-aid kit body -->
+  <rect x="8" y="18" width="48" height="38" rx="8" fill="#114B3A"/>
+  <!-- Kit lid / handle bar -->
+  <rect x="20" y="12" width="24" height="10" rx="4" fill="#0A3227"/>
+  <rect x="26" y="8" width="12" height="6" rx="3" fill="#E8A838"/>
+  <!-- Soft panel -->
+  <rect x="14" y="24" width="36" height="26" rx="5" fill="#E8F3EE"/>
+  <!-- Stylized brain (left hemisphere) -->
+  <path
+    d="M26.5 30c-3.2 0-5.5 2.4-5.5 5.2 0 1.3.5 2.4 1.3 3.2-.4.5-.6 1.1-.6 1.8 0 1.7 1.4 3 3.1 3h.4c.4 1.3 1.6 2.2 3 2.2 1.1 0 2-.5 2.5-1.3.5.8 1.4 1.3 2.5 1.3 1.4 0 2.6-.9 3-2.2h.4c1.7 0 3.1-1.3 3.1-3 0-.7-.2-1.3-.6-1.8.8-.8 1.3-1.9 1.3-3.2 0-2.8-2.3-5.2-5.5-5.2-1.2 0-2.3.4-3.2 1-.9-.6-2-1-3.2-1z"
+    fill="#114B3A"
+  />
+  <!-- Brain groove highlight -->
+  <path
+    d="M32 32.5c0 2.2-.4 4-.4 6.2M28.2 34.2c1.2.8 2.4 1 3.8 1.2M35.8 34.2c-1.2.8-2.4 1-3.8 1.2"
+    stroke="#E8F3EE"
+    stroke-width="1.2"
+    stroke-linecap="round"
+  />
+  <!-- Aid cross badge (first-aid nod, off-center like a sticker) -->
+  <circle cx="46" cy="28" r="8" fill="#E06B4A"/>
+  <path d="M46 23.5v9M41.5 28h9" stroke="#FFF7F4" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

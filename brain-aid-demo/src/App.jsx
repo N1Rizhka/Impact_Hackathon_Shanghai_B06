@@ -170,8 +170,8 @@ export default function App() {
       <div className="grain" aria-hidden />
       <header className="topbar">
         <button type="button" className="brand" onClick={resetDemo}>
-          <span className="brand-mark" />
-          StudyCircle
+          <img className="brand-mark" src="/logo.svg" alt="" width={28} height={28} />
+          Brain Aid
         </button>
         <Progress step={step} />
       </header>
@@ -188,8 +188,9 @@ export default function App() {
               transition={{ duration: 0.35 }}
             >
               <div className="hero-copy">
+                <img className="hero-logo" src="/logo.svg" alt="" width={72} height={72} />
                 <p className="eyebrow">Lifelong learning, with your people</p>
-                <h1>StudyCircle</h1>
+                <h1>Brain Aid</h1>
                 <p className="lede">
                   Open a room. Set a commitment. Learn with AI that adapts to your confidence —
                   including modes that make you catch mistakes, not just collect answers.
@@ -362,7 +363,7 @@ export default function App() {
                   <p className="eyebrow">Personalization</p>
                   <h2>How confident do you feel today?</h2>
                   <p className="sub">
-                    StudyCircle picks a teaching method from your confidence + the room plan.
+                    Brain Aid picks a teaching method from your confidence + the room plan.
                   </p>
                 </div>
               </div>
@@ -586,7 +587,7 @@ export default function App() {
 
               <div className="outro">
                 <p>
-                  That&apos;s the StudyCircle loop: <strong>room → plan → confidence → learn → prove → rank</strong>.
+                  That&apos;s the Brain Aid loop: <strong>room → plan → confidence → learn → prove → rank</strong>.
                   Built for lifelong learning with people who stay.
                 </p>
               </div>
