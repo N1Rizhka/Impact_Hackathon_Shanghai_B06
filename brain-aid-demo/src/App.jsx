@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import Logo from './Logo.jsx'
 import './App.css'
 
 const STEPS = ['home', 'room', 'plan', 'confidence', 'learn', 'rank']
@@ -170,7 +171,7 @@ export default function App() {
       <div className="grain" aria-hidden />
       <header className="topbar">
         <button type="button" className="brand" onClick={resetDemo}>
-          <img className="brand-mark" src="/logo.svg" alt="" width={28} height={28} />
+          <Logo className="brand-mark" size={30} />
           Brain Aid
         </button>
         <Progress step={step} />
@@ -188,7 +189,7 @@ export default function App() {
               transition={{ duration: 0.35 }}
             >
               <div className="hero-copy">
-                <img className="hero-logo" src="/logo.svg" alt="" width={72} height={72} />
+                <Logo className="hero-logo" size={88} />
                 <p className="eyebrow">Lifelong learning, with your people</p>
                 <h1>Brain Aid</h1>
                 <p className="lede">
