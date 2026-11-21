@@ -834,40 +834,45 @@ a { color: inherit; }
 
 .passage-tutorial {
   position: fixed;
-  inset: 0;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
   z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(7, 7, 7, 0.28);
-  animation: passage-fade 0.18s ease-out;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+  animation: passage-fade 0.2s ease-out;
 }
 .passage-tutorial-card {
-  width: min(400px, 100%);
-  background: #fff;
-  border: 1px solid rgba(7, 7, 7, 0.12);
-  border-radius: 16px;
-  padding: 20px 20px 16px;
-  box-shadow: 0 18px 40px rgba(7, 7, 7, 0.12);
-}
-.passage-tutorial-card p { margin: 0 0 12px; }
-.passage-tutorial-demo {
-  margin: 12px 0 16px;
-  padding: 14px;
-  border: 1px solid rgba(7, 7, 7, 0.08);
-  border-radius: 12px;
-  background: rgba(45, 108, 255, 0.04);
-}
-.passage-tutorial-row {
+  pointer-events: auto;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(7, 7, 7, 0.08);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(7, 7, 7, 0.08);
+  backdrop-filter: blur(8px);
 }
-.passage-tutorial-row strong {
+.passage-tutorial-card p {
+  margin: 0;
   flex: 1;
-  font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 0.88rem;
+  color: rgba(7, 7, 7, 0.7);
+  line-height: 1.35;
+}
+.passage-tutorial-dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
   font-weight: 600;
+  font-size: 0.84rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.passage-tutorial-dismiss:hover {
+  background: rgba(45, 108, 255, 0.08);
 }
 
 @media (max-width: 920px) {

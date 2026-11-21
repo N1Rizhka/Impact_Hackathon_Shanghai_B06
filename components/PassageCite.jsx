@@ -62,27 +62,13 @@ export default function PassageCite({ passage, label = 'From your notes', forceO
 
 export function PassageTutorial({ onDismiss }) {
   return (
-    <div className="passage-tutorial" role="dialog" aria-modal="true">
+    <div className="passage-tutorial" role="status">
       <div className="passage-tutorial-card">
-        <p className="eyebrow">Quick tip</p>
-        <h2 style={{ marginTop: 0 }}>Hover the soft P for the source paragraph</h2>
-        <p>
-          Next to each question you&apos;ll see a quiet <span className="passage-p demo">P</span>.
-          Hover it — the matching note paragraph appears.
-        </p>
-        <div className="passage-tutorial-demo">
-          <div className="passage-tutorial-row">
-            <strong>What captures sunlight in leaves?</strong>
-            <PassageCite
-              passage="Chlorophyll in leaves captures sunlight. Water and carbon dioxide become glucose and oxygen."
-              label="From your notes"
-            />
-          </div>
-          <p className="muted-line" style={{ margin: '10px 0 0' }}>
-            Try hovering the P above.
-          </p>
-        </div>
-        <button type="button" className="btn primary" onClick={onDismiss}>
+        <span className="passage-p demo" aria-hidden="true">
+          P
+        </span>
+        <p>Hover the soft P to see the source paragraph.</p>
+        <button type="button" className="passage-tutorial-dismiss" onClick={onDismiss}>
           Got it
         </button>
       </div>
