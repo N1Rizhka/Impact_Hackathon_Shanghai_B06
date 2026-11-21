@@ -674,7 +674,7 @@ export default function BrainAidApp({ initialInvite = '' }) {
                 {topics.map((t) => (
                   <div key={t.id} className="card" style={{ marginBottom: 10 }}>
                     <span className={`pill ${t.builtin ? '' : 'pink'}`}>
-                      {t.builtin ? 'built-in' : 'custom'}
+                      {t.builtin ? 'built-in' : t.generatedBy === 'ai' || t.tags?.includes('ai') ? 'AI custom' : 'custom'}
                     </span>
                     <h3 style={{ marginTop: 8 }}>{t.title}</h3>
                     <p>{t.blurb}</p>

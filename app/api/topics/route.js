@@ -18,7 +18,7 @@ export async function POST(req) {
 
   let topic;
   try {
-    topic = generateTopicFromMaterial({ title, material, ownerId });
+    topic = await generateTopicFromMaterial({ title, material, ownerId });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 400 });
   }
