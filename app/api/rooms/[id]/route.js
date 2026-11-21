@@ -27,10 +27,14 @@ export async function POST(req, context) {
       const room = db.rooms[id];
       if (!room) throw new Error('not found');
       if (body.action === 'completeSession') {
-        const { userId, mode } = body;
+        const { userId, mode, score, total, meta } = body;
         if (!room.memberIds.includes(userId)) throw new Error('not a member');
         room.sessionsByUser[userId] = room.sessionsByUser[userId] || [];
-        room.sessionsByUser[userId].push({ mode, at: Date.now() });
+        const entry = { mode, at: Date.now() };
+        if (score != null) entry.score = Number(score);
+        if (total != null) entry.total = Number(total);
+        if (meta && typeof meta === 'object') entry.meta = meta;
+        room.sessionsByUser[userId].push(entry);
 
         const today = new Date().toISOString().slice(0, 10);
         for (const otherId of room.memberIds) {
